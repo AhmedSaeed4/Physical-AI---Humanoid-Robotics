@@ -1,107 +1,50 @@
-# OpenAI Agents SDK for Claude
+# OpenAI Agents SDK Skill
+(Context: You have access to expert knowledge about OpenAI Agents SDK in SKILL.md)
 
-## When to Use This Skill
-Use this skill when users ask about:
-- OpenAI Agents SDK for Python
-- Building multi-agent systems
-- Creating AI agents with tools and guardrails
-- Real-time voice agents
-- Agent handoffs and orchestration
-- Function tools and custom models
+## ⚠️ CRITICAL INSTRUCTION: TARGETED OUTPUT ONLY
+**DO NOT** generate the entire codebase or all examples at once.
+**DO NOT** provide installation instructions or basics unless specifically asked.
+**ONLY** implement the specific components requested by the user.
 
-## How to Respond
-When a user asks about OpenAI Agents SDK:
+## Interaction Guidelines
 
-1. First, identify their specific use case or problem
-2. Provide relevant code examples using the SDK
-3. Explain the concepts clearly with practical applications
-4. Include best practices and common patterns
-5. Suggest appropriate architecture based on their needs
+1. **Identify the "Part"**: Map the user's request to one of the **Skill Parts** below.
+2. **Isolate Context**: Ignore information from other parts.
+3. **Concise Implementation**: Provide *only* the code snippet necessary for that part.
+4. **No Fluff**: Skip generic introductions. Go straight to the solution.
 
-## Key Concepts to Explain
+## Skill Parts (Use Independently)
 
-### Agents
-- Agents are the fundamental building blocks
-- They can interact with tools and models
-- Configure with system prompts and model settings
-- Manage agent lifecycle and sessions
+### Part A: Core Basics
+*Triggers*: "create agent", "simple assistant", "basic tool", "how to start"
+*Focus*:
+- `Agent` class initialization
+- Basic `@function_tool`
+- Simple `Runner.run()`
 
-### Tools
-- Use `@function_tool` decorator to create function tools
-- The SDK automatically parses function signatures and docstrings
-- Handle errors with failure_error_function parameter
-- Support file and image inputs/outputs
+### Part B: Advanced Workflows & Guardrails
+*Triggers*: "multi-agent", "handoff", "router", "safety", "validation", "guardrail"
+*Focus*:
+- `input_guardrail` / `output_guardrail`
+- Handoff logic (agent-to-agent transfers)
+- Structured outputs with Pydantic
 
-### Handoffs
-- Enable transfer of conversations between specialized agents
-- Design workflows with clear handoff points
-- Maintain context during handoffs
-- Implement proper error handling during transitions
+### Part C: Realtime & Voice
+*Triggers*: "voice", "audio", "speech", "realtime", "conversation"
+*Focus*:
+- `RealtimeRunner`
+- Voice-specific tools
+- Audio buffer handling
 
-### Real-time Voice
-- Use RealtimeRunner for voice conversations
-- Handle audio streaming and interruptions
-- Process speech-to-text and text-to-speech
-- Maintain low-latency interactions
+### Part D: Integration & Deployment
+*Triggers*: "fastapi", "gemini", "deploy", "server", "env vars"
+*Focus*:
+- Gemini / Reference implementation details (only if requested)
+- `AsyncOpenAI` client setup
+- Deployment patterns
 
-## Common Code Patterns
-
-### Basic Agent Creation
-```python
-from openai_agents import Agent
-
-agent = Agent(
-    name="assistant",
-    system_prompt="You are a helpful assistant...",
-    model="gpt-4o"
-)
-```
-
-### Function Tool Creation
-```python
-from openai_agents import function_tool
-
-@function_tool
-def get_weather(location: str) -> str:
-    """Get current weather for a location."""
-    # Implementation here
-    return weather_data
-```
-
-### Real-time Voice Processing
-```python
-from openai_agents import RealtimeRunner
-
-runner = RealtimeRunner(model="gpt-4o-realtime-preview")
-session = await runner.run()
-
-async for event in session:
-    # Process events like agent_start, tool_call, audio, etc.
-```
-
-## Best Practices
-- Start with simple examples before complex multi-agent systems
-- Use appropriate model settings for the task
-- Implement proper error handling and fallbacks
-- Consider rate limits and cost implications
-- Test thoroughly with realistic scenarios
-
-## Troubleshooting
-If users encounter issues:
-- Check SDK installation and version compatibility
-- Verify API keys and authentication
-- Review tool function signatures and types
-- Validate model names and availability
-- Ensure proper async/await patterns in code
-
-## Environment and Installation Notes
-- Recommend using uv for package management: `uv add openai-agents`
-- For voice capabilities: `uv add 'openai-agents[voice]'`
-- Create virtual environments with `python -m venv .venv` before installing
-- uv is often faster than pip and handles dependencies more efficiently
-
-## Gemini LLM Integration
-- For using Google's Gemini models with the SDK, see gemini_integration.md
-- Requires setting up GEMINI_API_KEY in .env file
-- Uses OpenAI-compatible endpoint: https://generativelanguage.googleapis.com/v1beta/openai/
-- Configure with AsyncOpenAI client and OpenAIChatCompletionsModel
+## Response Format
+When answering:
+1. **Selection**: "I will implement the [Part Name] for you."
+2. **Code**: [The specific snippet]
+3. **Note**: Brief usage comment (1 line).

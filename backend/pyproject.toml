@@ -3,8 +3,22 @@ name = "backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = []
+authors = [
+    { name = "Ahmed Saeed", email = "ahmedsaeed20026@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "bcrypt>=5.0.0",
+    "fastapi>=0.124.0",
+    "google-generativeai>=0.8.5",
+    "openai>=2.9.0",
+    "openai-agents>=0.6.2",
+    "passlib>=1.7.4",
+    "pyjwt>=2.10.1",
+    "python-dotenv>=1.2.1",
+    "qdrant-client>=1.16.1",
+    "uvicorn>=0.38.0",
+]
 
 [project.scripts]
 backend = "backend:main"

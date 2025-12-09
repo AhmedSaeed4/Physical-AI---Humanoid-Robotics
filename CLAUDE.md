@@ -212,6 +212,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 ## Active Technologies
 - Python 3.10+ (Primary), C++17 (Performance critical nodes) + ROS 2 Humble Hawksbill, NVIDIA Isaac Sim (4.0+), Gazebo (Fortress/Harmonic), PyTorch (CUDA 12.x), OpenAI API (Whisper, GPT-4o), NVIDIA Isaac ROS GEMs (001-physical-ai-book)
 - N/A (This is a book/documentation project with code examples, not a data storage application) (001-physical-ai-book)
+- Python 3.12+ + FastAPI, qdrant-client, google-generativeai, openai-agents, uvicorn (001-qdrant-integration)
+- Qdrant vector database (cloud), with metadata storage (001-qdrant-integration)
 
 ## Recent Changes
 - 001-physical-ai-book: Added Python 3.10+ (Primary), C++17 (Performance critical nodes) + ROS 2 Humble Hawksbill, NVIDIA Isaac Sim (4.0+), Gazebo (Fortress/Harmonic), PyTorch (CUDA 12.x), OpenAI API (Whisper, GPT-4o), NVIDIA Isaac ROS GEMs
