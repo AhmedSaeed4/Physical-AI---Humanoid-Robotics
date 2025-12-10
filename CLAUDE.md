@@ -214,6 +214,61 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - N/A (This is a book/documentation project with code examples, not a data storage application) (001-physical-ai-book)
 - Python 3.12+ + FastAPI, qdrant-client, google-generativeai, openai-agents, uvicorn (001-qdrant-integration)
 - Qdrant vector database (cloud), with metadata storage (001-qdrant-integration)
+- Python 3.12+ (Backend), TypeScript/React 18+ (Frontend), Node.js 20+ (Auth) + FastAPI (Backend), Docusaurus 3.x (Frontend), OpenAI ChatKit, Qdrant Client (003-chatkit-implementation)
+- PostgreSQL (User/Chat History), Qdrant (Vectors), In-memory store (ChatKit) (003-chatkit-implementation)
 
 ## Recent Changes
 - 001-physical-ai-book: Added Python 3.10+ (Primary), C++17 (Performance critical nodes) + ROS 2 Humble Hawksbill, NVIDIA Isaac Sim (4.0+), Gazebo (Fortress/Harmonic), PyTorch (CUDA 12.x), OpenAI API (Whisper, GPT-4o), NVIDIA Isaac ROS GEMs
+
+
+---
+
+## Skills
+
+Claude has access to specialized skills for domain-specific tasks. Use these skills when relevant.
+
+### Available Skills
+
+| Skill | Location | Use When |
+|-------|----------|----------|
+| **OpenAI Agents SDK** | `.claude/skills/openai-agents-sdk/` | Building AI agents, multi-agent systems, voice agents, guardrails |
+| **ChatKit Store** | `.claude/skills/chatkit-store/` | Implementing ChatKit Store, thread/item persistence |
+| **ChatKit Backend** | `.claude/skills/chatkit-backend/` | FastAPI server setup, model configuration, `/chatkit` endpoint |
+| **ChatKit Agent Memory** | `.claude/skills/chatkit-agent-memory/` | Conversation history, LiteLLM ID collision fix |
+| **ChatKit Frontend** | `.claude/skills/chatkit-frontend/` | React UI, useChatKit hook, themes, popup layouts |
+| **ChatKit Debug** | `.claude/skills/chatkit-debug/` | Troubleshooting errors, import issues, diagnostics |
+
+### How to Use Skills
+
+1. **Check the skill's `CLAUDE.md`** for interaction guidelines and part-based structure.
+2. **Consult the skill's `SKILL.md`** for reference code and patterns.
+3. **Respond with targeted output only** — do not dump the entire skill content.
+4. **Match the user's request to a specific Part** (A, B, C, or D) as defined in the skill.
+
+### Skill Behavior Rules
+
+- **DO NOT** generate all code examples from a skill at once.
+- **ONLY** provide the specific snippet or pattern the user requested.
+- **Reference the skill** when asked about its domain (e.g., "create an agent", "add guardrails").
+
+---
+
+## Agents
+
+Claude can delegate to specialized sub-agents for complex domain-specific tasks.
+
+### Available Agents
+
+| Agent | Location | Use When |
+|-------|----------|----------|
+| **ChatKit Expert** | `.claude/agents/chatkit-expert.md` | Full-stack ChatKit integration, LiteLLM setup, ID collision fixes, React frontend |
+
+### How to Use Agents
+
+Agents are invoked when the user needs comprehensive help in a specific domain. The agent file contains:
+- Detailed knowledge base
+- Error resolution guides
+- Complete code patterns
+- Task capabilities
+
+Use the ChatKit Expert agent for complex ChatKit tasks that span backend, frontend, and debugging.

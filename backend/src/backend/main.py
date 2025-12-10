@@ -1,13 +1,26 @@
 import os
-from typing import List, Dict, Any
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import uuid
+from pathlib import Path
+from datetime import datetime, timezone
+from typing import Any, AsyncIterator, List, Dict
+from dataclasses import dataclass, field
+
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, StreamingResponse
+from pydantic import BaseModel
+
 from agents import Agent, Runner, OpenAIChatCompletionsModel, RunConfig, AsyncOpenAI
 import sys
 from pathlib import Path
 import os
+
+from chatkit.server import ChatKitServer, StreamingResult
+from chatkit.store import Store
+from chatkit.types import ThreadMetadata, ThreadItem, Page
+from chatkit.types import AssistantMessageItem
+from chatkit.agents import AgentContext, stream_agent_response, ThreadItemConverter
 
 # Add the backend directory to the path so we can import from backend.database
 current_dir = Path(__file__).parent  # src/backend/
@@ -29,12 +42,13 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     raise ValueError("GEMINI_API_KEY not found in environment variables")
 
+# Use AsyncOpenAI client with Gemini's OpenAI-compatible endpoint
 client = AsyncOpenAI(
     api_key=API_KEY,
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
 
-# Define the Gemini model
+# Define the model using OpenAIChatCompletionsModel
 model = OpenAIChatCompletionsModel(
     model="gemini-2.5-flash",
     openai_client=client
@@ -45,6 +59,149 @@ config = RunConfig(
     model=model,
     model_provider=client,
 )
+
+# Import store and adapter
+from .store import MemoryStore
+from .chatkit_adapter import ChatKitRAGAdapter
+
+
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends
+
+# Define ChatKit Server Implementation with proper streaming
+class ChatKitServerImpl(ChatKitServer):
+    def __init__(self, store: MemoryStore, model=None, config=None):
+        super().__init__(store)
+        self.store = store
+        # Use ChatKit's official converter for proper item handling
+        self.converter = ThreadItemConverter()
+        self.model = model
+        self.config = config
+
+    async def respond(self, thread, input, context):
+        """Handle ChatKit requests with RAG functionality using proper ChatKit patterns"""
+        from chatkit.types import (
+            ThreadItemAddedEvent, ThreadItemDoneEvent,
+            ThreadItemUpdatedEvent, AssistantMessageItem
+        )
+
+        # Track ID mappings to ensure unique IDs (LiteLLM/Gemini fix)
+        id_mapping: dict[str, str] = {}
+
+        # Extract user message from input
+        user_message = ""
+        if hasattr(input, 'content') and input.content:
+            for content_item in input.content:
+                if hasattr(content_item, 'text') and content_item.text:
+                    user_message = content_item.text
+                    break
+        elif isinstance(input, str):
+            user_message = input
+
+        if not user_message:
+            # If no message content, return an empty response
+            return
+
+        # Search for relevant context from Qdrant
+        try:
+            collection_name = os.getenv("QDRANT_COLLECTION_NAME", "book_content")
+            search_results = search_chunks(
+                collection_name=collection_name,
+                query=user_message,
+                limit=int(os.getenv("SEARCH_LIMIT", "5")),
+                score_threshold=0.5
+            )
+        except Exception as e:
+            # Fallback if search fails
+            search_results = []
+
+        # Build context string for the agent
+        if search_results:
+            context_str = "\n\n".join([chunk["text"] for chunk in search_results if chunk.get("text")])
+            system_prompt = f"""
+            You are a helpful assistant that answers questions based on the provided book content.
+            Use the following context to answer the user's question:
+            {context_str}
+
+            If the context doesn't contain information to answer the question, say so.
+            Always cite the source document when providing information from the context.
+            """
+        else:
+            system_prompt = """
+            You are a helpful assistant. The documentation search did not return any relevant results.
+            Try to provide a helpful response based on general knowledge, and suggest the user rephrase their question if needed.
+            """
+
+        # Create the RAG agent with the context
+        rag_agent = Agent(
+            name="RAGBot",
+            instructions=system_prompt,
+            model=model
+        )
+
+        # Create agent context
+        agent_context = AgentContext(
+            thread=thread,
+            store=self.store,
+            request_context=context,
+        )
+
+        # Load thread items for conversation history
+        page = await self.store.load_thread_items(
+            thread.id,
+            after=None,
+            limit=100,
+            order="asc",
+            context=context
+        )
+        all_items = list(page.data)
+
+        # Add current input to the conversation
+        if input:
+            all_items.append(input)
+
+        # Convert using ChatKit's official converter
+        agent_input = await self.converter.to_agent_input(all_items) if all_items else []
+
+        # Run agent with full history using streamed response
+        result = Runner.run_streamed(
+            rag_agent,
+            agent_input,
+            context=agent_context,
+        )
+
+        # Stream the response with ID collision fix
+        async for event in stream_agent_response(agent_context, result):
+            # Fix potential ID collisions from LiteLLM/Gemini
+            if event.type == "thread.item.added":
+                if isinstance(event.item, AssistantMessageItem):
+                    old_id = event.item.id
+                    if old_id not in id_mapping:
+                        new_id = self.store.generate_item_id("message", thread, context)
+                        id_mapping[old_id] = new_id
+                    event.item.id = id_mapping[old_id]
+
+            elif event.type == "thread.item.done":
+                if isinstance(event.item, AssistantMessageItem):
+                    old_id = event.item.id
+                    if old_id in id_mapping:
+                        event.item.id = id_mapping[old_id]
+
+            elif event.type == "thread.item.updated":
+                if event.item_id in id_mapping:
+                    event.item_id = id_mapping[event.item_id]
+
+            yield event
+
+
+import secrets
+from typing import Optional
+
+# Simple in-memory user store (in production, use a proper database)
+users_db = {}
+
+# Simple in-memory token store (in production, use a proper database with expiration)
+tokens_db = {}
 
 # Create FastAPI app
 app = FastAPI(title="Qdrant RAG API", version="1.0.0")
@@ -60,6 +217,93 @@ app.add_middleware(
     # For development with Docusaurus frontend
     allow_origin_regex=r"https?://localhost:300[0-1](\..*)?$"  # Allow localhost:3000 and 3001
 )
+
+# Simple authentication
+security = HTTPBearer()
+
+def create_access_token(user_id: str) -> str:
+    """Create a simple access token"""
+    token = secrets.token_urlsafe(32)
+    tokens_db[token] = {
+        "user_id": user_id,
+        "created_at": datetime.now(timezone.utc)
+    }
+    return token
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user from token"""
+    token = credentials.credentials
+    if token not in tokens_db:
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
+
+    user_data = tokens_db[token]
+    return {"id": user_data["user_id"], "name": f"User {user_data['user_id']}"}
+
+# Authentication endpoints
+@app.post("/api/auth/login")
+async def login(username: str, password: str):
+    """Simple login endpoint (in production, properly hash passwords)"""
+    # In a real app, verify credentials against a user database
+    # For this example, we'll create a user if they don't exist
+    user_id = f"user_{username}"
+    users_db[user_id] = {
+        "username": username,
+        "created_at": datetime.now(timezone.utc)
+    }
+
+    token = create_access_token(user_id)
+    return {"access_token": token, "token_type": "bearer", "user_id": user_id}
+
+@app.post("/api/auth/logout")
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Simple logout endpoint"""
+    # Remove the token from the database
+    # In a real app, you would need to get the token from the request
+    # For now, we'll just return a success message
+    return {"message": f"User {current_user['id']} logged out successfully"}
+
+# Add ChatKit endpoint with authentication (for production)
+@app.post("/api/chatkit-auth")
+async def chatkit_endpoint_auth(request: Request, current_user: dict = Depends(get_current_user)):
+    # Add user context to the server call
+    context = {"user": current_user}
+    result = await server.process(await request.body(), context)
+    if isinstance(result, StreamingResult):
+        return StreamingResponse(result, media_type="text/event-stream")
+    return Response(content=result.json, media_type="application/json")
+
+# Add ChatKit endpoint without authentication (for testing)
+@app.post("/api/chatkit")
+async def chatkit_endpoint_no_auth(request: Request):
+    # Add a default user context to the server call
+    context = {"user": {"id": "test_user", "name": "Test User"}}
+    result = await server.process(await request.body(), context)
+    if isinstance(result, StreamingResult):
+        return StreamingResponse(result, media_type="text/event-stream")
+    return Response(content=result.json, media_type="application/json")
+
+# Initialize store and server
+store = MemoryStore()
+server = ChatKitServerImpl(store)
+
+
+# Debug endpoint to inspect stored items
+@app.get("/debug/threads")
+async def debug_threads():
+    result = {}
+    for thread_id, state in store._threads.items():
+        items = []
+        for item in state.items:
+            item_data = {"id": item.id, "type": type(item).__name__}
+            if hasattr(item, 'content') and item.content:
+                content_parts = []
+                for part in item.content:
+                    if hasattr(part, 'text'):
+                        content_parts.append(part.text)
+                item_data["content"] = content_parts
+            items.append(item_data)
+        result[thread_id] = {"items": items, "count": len(items)}
+    return result
 
 # Pydantic models for request/response
 class ChatRequest(BaseModel):
@@ -103,9 +347,10 @@ async def root():
     return {"message": "Qdrant RAG API is running"}
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
     RAG chat endpoint - Process user query with RAG and return contextual response
+    Now requires authentication
     """
     try:
         # Search for relevant chunks in the vector database
@@ -192,10 +437,12 @@ async def chat_endpoint(request: ChatRequest):
 async def search_endpoint(
     query: str = Query(..., min_length=1, description="Search query text"),
     limit: int = Query(default=5, ge=1, le=20, description="Maximum number of results to return"),
-    score_threshold: float = Query(default=0.7, ge=0.0, le=1.0, description="Minimum similarity score threshold")
+    score_threshold: float = Query(default=0.7, ge=0.0, le=1.0, description="Minimum similarity score threshold"),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Direct vector search endpoint - Perform direct vector similarity search on book content
+    Now requires authentication
     """
     try:
         collection_name = os.getenv("QDRANT_COLLECTION_NAME", "book_content")

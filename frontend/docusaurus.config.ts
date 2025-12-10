@@ -54,6 +54,15 @@ const config: Config = {
     ],
   ],
 
+  headTags: [
+    {
+      tagName: 'script',
+      attributes: {
+        src: 'https://cdn.platform.openai.com/deployments/chatkit/chatkit.js',
+        async: 'async',
+      },
+    },
+  ],
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',

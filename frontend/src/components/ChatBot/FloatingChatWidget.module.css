@@ -1,0 +1,162 @@
+/* Floating Chat Widget - Minimal Styles */
+
+/* Floating button - simple and subtle */
+.floatingButton {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #25c2a0;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+  color: white;
+}
+
+.floatingButtonHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Chat panel popup - clean and minimal */
+.chatPanel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 400px;
+  height: 550px;
+  max-height: calc(100vh - 100px);
+  background: var(--ifm-background-color, #1b1b1d);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1001;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.chatPanelOpen {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Header - simple */
+.chatHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #25c2a0;
+  color: white;
+  flex-shrink: 0;
+}
+
+.chatTitle {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.headerButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.newChatButton {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.closeButton {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+/* Chat body */
+.chatBody {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chatBody>* {
+  flex: 1;
+  height: 100%;
+}
+
+/* Overlay - subtle */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 999;
+  display: none;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .chatPanel {
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    height: 80vh;
+    max-height: 80vh;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .overlay {
+    display: block;
+  }
+
+  .floatingButton {
+    bottom: 16px;
+    right: 16px;
+  }
+}
+
+/* Theme adjustments */
+[data-theme='dark'] .chatPanel {
+  background: #1b1b1d;
+}
+
+[data-theme='light'] .chatPanel {
+  background: #ffffff;
+}
+
+/* ChatKit height fix */
+.chatBody :global(.openai-chatkit),
+.chatBody :global(openai-chatkit) {
+  height: 100% !important;
+  min-height: unset !important;
+}

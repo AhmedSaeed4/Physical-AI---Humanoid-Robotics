@@ -1,46 +1,154 @@
 .chatContainer {
   margin: 0 auto;
   padding: 2rem 0;
+  max-width: 1200px; /* Match Docusaurus container width */
 }
 
-.chatForm {
+/* Chat header with controls */
+.chatHeader {
   display: flex;
-  margin-bottom: 1.5rem;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.chatInput {
-  flex: 1;
-  min-width: 250px;
-  padding: 0.75rem;
-  border: 1px solid var(--ifm-color-emphasis-300);
-  border-radius: var(--ifm-input-border-radius);
-  font-size: var(--ifm-font-size-base);
-}
-
-.chatButton {
-  padding: 0.75rem 1.5rem;
-  font-size: var(--ifm-font-size-base);
-}
-
-.chunkItem {
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
-  padding: 1rem;
-  border-left: 3px solid var(--ifm-color-primary);
 }
 
-.contextChunks,
-.sources {
-  margin-top: 1.5rem;
-  padding: 1.5rem;
+.threadControls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.newThreadButton, .historyToggleButton {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-global-radius);
+  background-color: var(--ifm-button-background-color);
+  color: var(--ifm-button-color);
+  cursor: pointer;
+  font-size: var(--ifm-font-size-base);
+}
+
+.newThreadButton:hover, .historyToggleButton:hover {
+  background-color: var(--ifm-color-emphasis-200);
+}
+
+/* Thread history panel */
+.threadHistoryPanel {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: var(--ifm-global-radius);
   background-color: var(--ifm-color-emphasis-100);
 }
 
-.loadingState,
-.errorState {
-  margin: 1rem 0;
-  padding: 1rem;
+.threadHistoryPanel h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--ifm-heading-color);
+}
+
+.threadList {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.threadItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: var(--ifm-global-radius);
+  background-color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.threadItem:hover {
+  background-color: var(--ifm-color-emphasis-200);
+}
+
+.threadTitle {
+  font-weight: 500;
+  flex: 1;
+}
+
+.threadTime {
+  font-size: 0.8rem;
+  color: var(--ifm-color-emphasis-700);
+  white-space: nowrap;
+  margin-left: 1rem;
+}
+
+.noThreads {
+  padding: 1rem;
+  text-align: center;
+  color: var(--ifm-color-emphasis-600);
+  font-style: italic;
+}
+
+/* ChatKit container styling to match Docusaurus theme */
+.chatkit-container {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-global-radius);
+  box-shadow: var(--ifm-global-shadow-lw);
+  overflow: hidden;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Override ChatKit default styles to match Docusaurus theme */
+.chatkit-container .ck-thread {
+  min-height: 600px;
+  background-color: var(--ifm-background-surface-color);
+}
+
+.chatkit-container .ck-composer {
+  border-top: 1px solid var(--ifm-color-emphasis-300) !important;
+  background-color: var(--ifm-background-surface-color) !important;
+}
+
+.chatkit-container .ck-message {
+  border-radius: var(--ifm-global-radius) !important;
+}
+
+.chatkit-container .ck-message.ck-message-role-assistant {
+  background-color: var(--ifm-color-emphasis-100) !important;
+}
+
+.chatkit-container .ck-message.ck-message-role-user {
+  background-color: var(--ifm-color-primary) !important;
+  color: white !important;
+}
+
+.chatkit-container .ck-composer-input {
+  border: 1px solid var(--ifm-color-emphasis-300) !important;
+  border-radius: var(--ifm-global-radius) !important;
+  padding: 0.75rem !important;
+  font-size: var(--ifm-font-size-base) !important;
+}
+
+.chatkit-container .ck-composer-button {
+  background-color: var(--ifm-color-primary) !important;
+  color: white !important;
+  border-radius: var(--ifm-global-radius) !important;
+}
+
+/* Ensure the chat header matches Docusaurus styling */
+.chatkit-container .ck-thread-header {
+  border-bottom: 1px solid var(--ifm-color-emphasis-300) !important;
+  background-color: var(--ifm-background-surface-color) !important;
+  padding: 0.75rem 1rem !important;
+}
+
+/* Style the greeting and prompts to match Docusaurus */
+.chatkit-container .ck-start-screen {
+  background-color: var(--ifm-background-surface-color) !important;
+}
+
+.chatkit-container .ck-prompt {
+  border: 1px solid var(--ifm-color-emphasis-300) !important;
+  border-radius: var(--ifm-global-radius) !important;
+  background-color: white !important;
 }
