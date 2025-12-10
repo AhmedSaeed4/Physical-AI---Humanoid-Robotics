@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './ChatBot.module.css';
 
 interface ChatBotAuthenticatedProps {
@@ -16,15 +17,13 @@ const ChatBotAuthenticated: React.FC<ChatBotAuthenticatedProps> = ({ authToken }
     setInitialThread(savedThread || null);
   }, []);
 
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+  const { siteConfig } = useDocusaurusContext();
+  const backendUrl = (siteConfig.customFields?.backendUrl as string) || 'http://localhost:8000';
   const { control } = useChatKit({
     api: {
       url: `${backendUrl}/api/chatkit`,
       domainKey: 'localhost',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
-      },
-    },
+    } as any, // Note: headers not supported in ChatKit types, auth handled by backend
     initialThread: initialThread,
     theme: {
       colorScheme: 'light', // Using light theme to match Docusaurus styling

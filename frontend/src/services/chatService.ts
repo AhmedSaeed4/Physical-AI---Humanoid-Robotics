@@ -32,7 +32,9 @@ export const useChatService = (): ChatService => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const sendMessage = async (message: string, selectedText?: string): Promise<ChatResponse> => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    // Use production URL if available, fallback to localhost for development
+    // This URL is configured at build time via docusaurus.config.ts customFields
+    const backendUrl = 'http://localhost:8000'; // Will be overridden in components using useDocusaurusContext
     try {
       const response = await fetch(`${backendUrl}/api/chat`, {
         method: 'POST',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './FloatingChatWidget.module.css';
 
 /**
@@ -8,7 +9,8 @@ import styles from './FloatingChatWidget.module.css';
  */
 // Inner component that handles ChatKit logic
 const FloatingChatInner: React.FC<{ selectedText: string | null; initialThread: string | null; onThreadChange: (threadId: string) => void }> = ({ selectedText, initialThread, onThreadChange }) => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    const { siteConfig } = useDocusaurusContext();
+    const backendUrl = (siteConfig.customFields?.backendUrl as string) || 'http://localhost:8000';
     const { control, setComposerValue, focusComposer } = useChatKit({
         api: {
             url: `${backendUrl}/api/chatkit`,

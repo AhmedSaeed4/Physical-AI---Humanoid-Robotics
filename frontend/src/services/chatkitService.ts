@@ -32,7 +32,8 @@ class ChatKitService {
   private baseUrl: string;
 
   constructor(config?: Partial<ChatKitServiceConfig>) {
-    const defaultBackendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    // Default to localhost for development - production components use useDocusaurusContext
+    const defaultBackendUrl = 'http://localhost:8000';
     this.config = {
       baseUrl: config?.baseUrl || defaultBackendUrl,
       domainKey: config?.domainKey || 'localhost',
