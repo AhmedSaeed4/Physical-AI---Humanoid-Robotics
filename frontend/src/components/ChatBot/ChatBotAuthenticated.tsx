@@ -16,9 +16,10 @@ const ChatBotAuthenticated: React.FC<ChatBotAuthenticatedProps> = ({ authToken }
     setInitialThread(savedThread || null);
   }, []);
 
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
   const { control } = useChatKit({
     api: {
-      url: 'http://localhost:8000/api/chatkit',
+      url: `${backendUrl}/api/chatkit`,
       domainKey: 'localhost',
       headers: {
         'Authorization': `Bearer ${authToken}`,

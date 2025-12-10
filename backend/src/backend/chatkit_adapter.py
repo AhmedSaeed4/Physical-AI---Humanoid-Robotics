@@ -51,9 +51,10 @@ class ChatKitRAGAdapter:
         self.last_request_times = defaultdict(float)
         self.request_cooldown = 0.5  # 500ms cooldown between requests
 
-    async def process_user_message(self, thread_id: str, user_message: str) -> ThreadItem:
+    async def process_user_message(self, thread_id: str, user_message: str, selected_text: str = None) -> ThreadItem:
         """
         Process a user message through the RAG pipeline and return an assistant response
+        Now enhanced to handle selected text as additional context.
         """
         # Handle rapid query submission - check if request is too frequent
         current_time = time.time()
@@ -74,7 +75,8 @@ class ChatKitRAGAdapter:
                 created_at=datetime.now(timezone.utc),
                 metadata={
                     "context_chunks": context_chunks,
-                    "sources": sources_list
+                    "sources": sources_list,
+                    "used_selected_text": False
                 }
             )
             return assistant_item
@@ -94,11 +96,19 @@ class ChatKitRAGAdapter:
                 user_message = user_message[:1000] + "... [truncated for processing]"
                 print(f"Query was too long ({original_length} chars) and has been truncated for processing")
 
+            # Build the query based on whether selected text is provided
+            if selected_text:
+                # Combine user query with selected text for better context
+                enhanced_query = f"{user_message}\n\nContext from selected text: {selected_text}"
+                search_query = enhanced_query
+            else:
+                search_query = user_message
+
             # Search for relevant chunks in the vector database with error handling
             try:
                 search_results = search_chunks(
                     collection_name=self.collection_name,
-                    query=user_message,
+                    query=search_query,
                     limit=self.limit,
                     score_threshold=self.score_threshold
                 )
@@ -116,26 +126,37 @@ class ChatKitRAGAdapter:
             context_chunks = []
             sources_list = []
         elif user_message and user_message.strip() != "":
-            # Format the context from search results
-            context_text = "\n\n".join([f"Source: {chunk['filename']}\nContent: {chunk['text']}"
-                                       for chunk in search_results])
+            # Prepare context string for the agent
+            if search_results:
+                context_str = "\n\n".join([chunk["text"] for chunk in search_results if chunk.get("text")])
+            else:
+                context_str = "No relevant information found in the book content."
 
-            # Prepare the prompt for the AI agent
-            prompt = f"""
-            You are a helpful assistant that answers questions based on book content provided in the context.
-            Use the context to answer the user's query. If the context doesn't contain enough information,
-            clearly state that you couldn't find relevant information.
+            # Build system prompt with selected text context if available
+            if selected_text:
+                system_prompt = f"""
+                You are a helpful assistant helping users understand book content.
 
-            Context:
-            {context_text}
+                The user has selected this specific text from the book:
+                "{selected_text}"
 
-            User's query: {user_message}
-            """
+                Use this as the primary context for your response. Also consider the following
+                relevant sections from the book: {context_str}
 
-            # Create the agent with the prompt
+                Answer the user's question clearly and specifically reference the selected text.
+                """
+            else:
+                system_prompt = f"""
+                You are a helpful assistant that answers questions based on book content provided in the context.
+                Use the following context to answer the user's query: {context_str}
+
+                If the context doesn't contain enough information, clearly state that you couldn't find relevant information.
+                """
+
+            # Create the agent with the enhanced prompt
             agent = Agent(
                 name="RAGBot",
-                instructions=f"You are a helpful assistant that answers questions based on provided context. Always cite your sources from the context provided. Context: {context_text}",
+                instructions=system_prompt,
                 model=self.model
             )
 
@@ -186,7 +207,8 @@ class ChatKitRAGAdapter:
             created_at=datetime.now(timezone.utc),
             metadata={
                 "context_chunks": context_chunks,
-                "sources": sources_list
+                "sources": sources_list,
+                "used_selected_text": selected_text is not None and len(selected_text) > 0
             }
         )
 
@@ -207,15 +229,16 @@ class ChatKitRAGAdapter:
         await self.store.add_thread_item(thread_id, user_item, {})
         return user_item
 
-    async def process_thread_message(self, thread_id: str, user_message: str) -> ThreadItem:
+    async def process_thread_message(self, thread_id: str, user_message: str, selected_text: str = None) -> ThreadItem:
         """
         Process a complete thread message interaction: add user message and generate assistant response
+        Now enhanced to handle selected text as additional context.
         """
         # Add user message to thread
         await self.add_user_message_to_thread(thread_id, user_message)
 
-        # Process through RAG and get assistant response
-        assistant_response = await self.process_user_message(thread_id, user_message)
+        # Process through RAG and get assistant response with selected text context
+        assistant_response = await self.process_user_message(thread_id, user_message, selected_text)
 
         # Add assistant response to thread
         await self.store.add_thread_item(thread_id, assistant_response, {})

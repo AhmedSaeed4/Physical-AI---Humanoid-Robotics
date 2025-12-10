@@ -102,12 +102,26 @@ class ChatKitServerImpl(ChatKitServer):
             # If no message content, return an empty response
             return
 
+        # Extract selected text from context if available
+        selected_text = None
+        if context and isinstance(context, dict):
+            # Check if selected text was passed in the context
+            selected_text = context.get('selected_text', None)
+
+        # Build the query based on whether selected text is provided
+        if selected_text:
+            # Combine user query with selected text for better context
+            enhanced_query = f"{user_message}\n\nContext from selected text: {selected_text}"
+            search_query = enhanced_query
+        else:
+            search_query = user_message
+
         # Search for relevant context from Qdrant
         try:
             collection_name = os.getenv("QDRANT_COLLECTION_NAME", "book_content")
             search_results = search_chunks(
                 collection_name=collection_name,
-                query=user_message,
+                query=search_query,
                 limit=int(os.getenv("SEARCH_LIMIT", "5")),
                 score_threshold=0.5
             )
@@ -115,21 +129,32 @@ class ChatKitServerImpl(ChatKitServer):
             # Fallback if search fails
             search_results = []
 
-        # Build context string for the agent
+        # Prepare context string for the agent
         if search_results:
             context_str = "\n\n".join([chunk["text"] for chunk in search_results if chunk.get("text")])
+        else:
+            context_str = "No relevant information found in the book content."
+
+        # Build system prompt with selected text context if available
+        if selected_text:
+            system_prompt = f"""
+            You are a helpful assistant helping users understand book content.
+
+            The user has selected this specific text from the book:
+            "{selected_text}"
+
+            Use this as the primary context for your response. Also consider the following
+            relevant sections from the book: {context_str}
+
+            Answer the user's question clearly and specifically reference the selected text.
+            """
+        else:
             system_prompt = f"""
             You are a helpful assistant that answers questions based on the provided book content.
-            Use the following context to answer the user's question:
-            {context_str}
+            Use the following context to answer the user's question: {context_str}
 
             If the context doesn't contain information to answer the question, say so.
             Always cite the source document when providing information from the context.
-            """
-        else:
-            system_prompt = """
-            You are a helpful assistant. The documentation search did not return any relevant results.
-            Try to provide a helpful response based on general knowledge, and suggest the user rephrase their question if needed.
             """
 
         # Create the RAG agent with the context
@@ -209,13 +234,14 @@ app = FastAPI(title="Qdrant RAG API", version="1.0.0")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=[
+        "https://physical-ai-humanoid-robotics-ai.netlify.app",  # Production frontend
+        "http://localhost:3000",  # Local development
+        "http://localhost:3001",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    # Add any additional origins as needed for your frontend
-    # For development with Docusaurus frontend
-    allow_origin_regex=r"https?://localhost:300[0-1](\..*)?$"  # Allow localhost:3000 and 3001
 )
 
 # Simple authentication
@@ -265,9 +291,23 @@ async def logout(current_user: dict = Depends(get_current_user)):
 # Add ChatKit endpoint with authentication (for production)
 @app.post("/api/chatkit-auth")
 async def chatkit_endpoint_auth(request: Request, current_user: dict = Depends(get_current_user)):
-    # Add user context to the server call
+    # Parse request to extract selected text if present
+    request_body = await request.body()
+
+    # Try to parse the body to extract selected_text
+    import json
+    try:
+        request_json = json.loads(request_body)
+        selected_text = request_json.get('selected_text', None)
+    except json.JSONDecodeError:
+        selected_text = None
+
+    # Add user context and selected text to the server call
     context = {"user": current_user}
-    result = await server.process(await request.body(), context)
+    if selected_text:
+        context['selected_text'] = selected_text
+
+    result = await server.process(request_body, context)
     if isinstance(result, StreamingResult):
         return StreamingResponse(result, media_type="text/event-stream")
     return Response(content=result.json, media_type="application/json")
@@ -275,9 +315,23 @@ async def chatkit_endpoint_auth(request: Request, current_user: dict = Depends(g
 # Add ChatKit endpoint without authentication (for testing)
 @app.post("/api/chatkit")
 async def chatkit_endpoint_no_auth(request: Request):
-    # Add a default user context to the server call
+    # Parse request to extract selected text if present
+    request_body = await request.body()
+
+    # Try to parse the body to extract selected_text
+    import json
+    try:
+        request_json = json.loads(request_body)
+        selected_text = request_json.get('selected_text', None)
+    except json.JSONDecodeError:
+        selected_text = None
+
+    # Add a default user context and selected text to the server call
     context = {"user": {"id": "test_user", "name": "Test User"}}
-    result = await server.process(await request.body(), context)
+    if selected_text:
+        context['selected_text'] = selected_text
+
+    result = await server.process(request_body, context)
     if isinstance(result, StreamingResult):
         return StreamingResponse(result, media_type="text/event-stream")
     return Response(content=result.json, media_type="application/json")
@@ -308,8 +362,9 @@ async def debug_threads():
 # Pydantic models for request/response
 class ChatRequest(BaseModel):
     user_query: str
-    selected_text: str = ""
+    selected_text: Optional[str] = None
     chat_history: List[Dict[str, str]] = []
+    user_profile: Optional[Dict[str, Any]] = None
 
 class ContextChunk(BaseModel):
     id: str
@@ -346,13 +401,27 @@ async def root():
     """
     return {"message": "Qdrant RAG API is running"}
 
-@app.post("/api/chat", response_model=ChatResponse)
+class ChatResponseWithSelectedText(BaseModel):
+    output: str
+    context_chunks: List[ContextChunk]
+    sources: List[Source]
+    used_selected_text: bool
+
+@app.post("/api/chat", response_model=ChatResponseWithSelectedText)
 async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
     RAG chat endpoint - Process user query with RAG and return contextual response
-    Now requires authentication
+    Now enhanced to handle selected text as additional context.
     """
     try:
+        # Build the query based on whether selected text is provided
+        if request.selected_text:
+            # Combine user query with selected text for better context
+            enhanced_query = f"{request.user_query}\n\nContext from selected text: {request.selected_text}"
+            search_query = enhanced_query
+        else:
+            search_query = request.user_query
+
         # Search for relevant chunks in the vector database
         collection_name = os.getenv("QDRANT_COLLECTION_NAME", "book_content")
         limit = int(os.getenv("SEARCH_LIMIT", 5))
@@ -360,39 +429,47 @@ async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_c
 
         search_results = search_chunks(
             collection_name=collection_name,
-            query=request.user_query,
+            query=search_query,
             limit=limit,
             score_threshold=score_threshold
         )
 
-        if not search_results:
-            # If no relevant chunks found, return a response without context
-            return ChatResponse(
-                output="I couldn't find any relevant information in the book content to answer your question.",
-                context_chunks=[],
-                sources=[]
-            )
+        # Prepare context string for the agent
+        if search_results:
+            context_str = "\n\n".join([chunk["text"] for chunk in search_results if chunk.get("text")])
+        else:
+            context_str = "No relevant information found in the book content."
 
-        # Format the context from search results
-        context_text = "\n\n".join([f"Source: {chunk['filename']}\nContent: {chunk['text']}"
-                                   for chunk in search_results])
+        # Build system prompt with selected text context if available
+        if request.selected_text:
+            system_prompt = f"""
+            You are a helpful assistant helping users understand book content.
 
-        # Prepare the prompt for the AI agent
-        prompt = f"""
-        You are a helpful assistant that answers questions based on book content provided in the context.
-        Use the context to answer the user's query. If the context doesn't contain enough information,
-        clearly state that you couldn't find relevant information.
+            The user has selected this specific text from the book:
+            "{request.selected_text}"
 
-        Context:
-        {context_text}
+            Use this as the primary context for your response. Also consider the following
+            relevant sections from the book: {context_str}
 
-        User's query: {request.user_query}
-        """
+            Answer the user's question clearly and specifically reference the selected text.
+            """
+        else:
+            system_prompt = f"""
+            You are a helpful assistant that answers questions based on book content provided in the context.
+            Use the following context to answer the user's query: {context_str}
 
-        # Create the agent with the prompt
+            If the context doesn't contain enough information, clearly state that you couldn't find relevant information.
+            """
+
+        # Include user profile information if available
+        if request.user_profile:
+            profile_context = f"\nUser profile: {request.user_profile}"
+            system_prompt += profile_context
+
+        # Create the agent with the enhanced prompt
         agent = Agent(
             name="RAGBot",
-            instructions=f"You are a helpful assistant that answers questions based on provided context. Always cite your sources from the context provided. Context: {context_text}",
+            instructions=system_prompt,
             model=model
         )
 
@@ -424,10 +501,11 @@ async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_c
 
         sources_list = [Source(filename=src["filename"], url=src["url"]) for src in unique_sources.values()]
 
-        return ChatResponse(
+        return ChatResponseWithSelectedText(
             output=ai_response,
             context_chunks=context_chunks,
-            sources=sources_list
+            sources=sources_list,
+            used_selected_text=request.selected_text is not None and len(request.selected_text) > 0
         )
 
     except Exception as e:

@@ -3,19 +3,39 @@ import clsx from 'clsx';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
 import styles from './ChatBot.module.css';
 
+interface ChatBotSimpleProps {
+  initialSelectedText?: string;
+}
+
 // Simple ChatBot component without authentication
-const ChatBotSimple: React.FC = () => {
+const ChatBotSimple: React.FC<ChatBotSimpleProps> = ({ initialSelectedText }) => {
   const [showThreadHistory, setShowThreadHistory] = useState(false);
   const [initialThread, setInitialThread] = useState<string | null>(null);
+  const [selectedText, setSelectedText] = useState<string | undefined>(initialSelectedText);
 
   useEffect(() => {
     const savedThread = localStorage.getItem('chatkit-thread-id');
     setInitialThread(savedThread || null);
+
+    // Listen for the custom event to update selected text
+    const handleOpenChatWithSelection = (event: CustomEvent) => {
+      setSelectedText(event.detail.text);
+    };
+
+    // Add event listener using addEventListener
+    const eventListener = (event: Event) => handleOpenChatWithSelection(event as CustomEvent);
+    window.addEventListener('openChatWithSelection', eventListener);
+
+    // Cleanup function to remove event listener
+    return () => {
+      window.removeEventListener('openChatWithSelection', eventListener);
+    };
   }, []);
 
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
   const { control } = useChatKit({
     api: {
-      url: 'http://localhost:8000/api/chatkit',
+      url: `${backendUrl}/api/chatkit`,
       domainKey: 'localhost',
     },
     initialThread: initialThread,
@@ -32,10 +52,13 @@ const ChatBotSimple: React.FC = () => {
       prompts: [
         { label: 'What is this book about?', prompt: 'What is this book about?' },
         { label: 'Help me understand', prompt: 'Help me understand a concept from the book' },
+        ...(selectedText ? [{ label: `Explain: ${selectedText.substring(0, 30)}...`, prompt: `Explain: ${selectedText}` }] : []),
       ],
     },
     composer: {
-      placeholder: 'Ask a question about the book content...',
+      placeholder: selectedText
+        ? `Ask about: "${selectedText.substring(0, 60)}${selectedText.length > 60 ? '...' : ''}"`
+        : 'Ask a question about the book content...',
     },
     onThreadChange: ({ threadId }) => {
       if (threadId) {
@@ -55,6 +78,13 @@ const ChatBotSimple: React.FC = () => {
     },
     onError: ({ error }) => console.error('ChatKit error:', error),
   });
+
+  // Method to open chat with selected text
+  const openWithSelection = (text: string) => {
+    setSelectedText(text);
+    // If the chat is minimized, we might need to expand it here
+    // For now, we're just storing the selected text context
+  };
 
   // Function to get recent threads from localStorage or other source
   const getRecentThreads = () => {
@@ -104,6 +134,25 @@ const ChatBotSimple: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Display selected text context if available */}
+      {selectedText && (
+        <div className={styles.selectedTextContext}>
+          <div className={styles.selectedTextHeader}>
+            <span>Selected from book:</span>
+            <button
+              className={styles.clearSelectedText}
+              onClick={() => setSelectedText(undefined)}
+              title="Clear selected text"
+            >
+              ×
+            </button>
+          </div>
+          <div className={styles.selectedTextContent}>
+            "{selectedText}"
+          </div>
+        </div>
+      )}
 
       {showThreadHistory && (
         <div className={styles.threadHistoryPanel}>

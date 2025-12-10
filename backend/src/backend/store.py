@@ -66,8 +66,17 @@ class MemoryStore(Store[dict]):
         """List all threads with pagination"""
         threads = [s.thread.model_copy(deep=True) for s in self._threads.values()]
         # Sort by created_at
+        # Sort by created_at - normalize datetimes
+        def get_sortable_thread_datetime(thread: ThreadMetadata) -> datetime:
+            dt = thread.created_at
+            if dt is None:
+                return datetime.now(timezone.utc)
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt
+
         threads.sort(
-            key=lambda t: t.created_at,
+            key=get_sortable_thread_datetime,
             reverse=(order == "desc")
         )
         return Page(data=threads[:limit], has_more=len(threads) > limit)

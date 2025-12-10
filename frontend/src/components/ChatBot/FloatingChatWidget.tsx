@@ -6,18 +6,12 @@ import styles from './FloatingChatWidget.module.css';
  * Floating Chat Widget - appears as a button in the bottom-right corner
  * Opens a popup panel with the ChatKit interface
  */
-const FloatingChatWidget: React.FC = () => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [initialThread, setInitialThread] = useState<string | null>(null);
-
-    useEffect(() => {
-        const savedThread = localStorage.getItem('chatkit-thread-id');
-        setInitialThread(savedThread || null);
-    }, []);
-
-    const { control } = useChatKit({
+// Inner component that handles ChatKit logic
+const FloatingChatInner: React.FC<{ selectedText: string | null; initialThread: string | null; onThreadChange: (threadId: string) => void }> = ({ selectedText, initialThread, onThreadChange }) => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    const { control, setComposerValue, focusComposer } = useChatKit({
         api: {
-            url: 'http://localhost:8000/api/chatkit',
+            url: `${backendUrl}/api/chatkit`,
             domainKey: 'localhost',
         },
         initialThread: initialThread,
@@ -34,19 +28,67 @@ const FloatingChatWidget: React.FC = () => {
             prompts: [
                 { label: 'Hello', prompt: 'Hello' },
                 { label: 'Help', prompt: 'What can you help me with?' },
-                { label: 'Documentation', prompt: 'What topics are covered in this documentation?' },
+                ...(selectedText ? [{ label: 'Explain selected', prompt: `Explain this: "${selectedText}"` }] : [
+                    { label: 'Documentation', prompt: 'What topics are covered in this documentation?' }
+                ]),
             ],
         },
         composer: {
-            placeholder: 'Type a message about the documentation...',
+            placeholder: selectedText ? 'Ask about your selection...' : 'Type a message about the documentation...',
         },
         onThreadChange: ({ threadId }) => {
             if (threadId) {
-                localStorage.setItem('chatkit-thread-id', threadId);
+                onThreadChange(threadId);
             }
         },
         onError: ({ error }) => console.error('ChatKit error:', error),
     });
+
+    // Pre-fill composer when selectedText is provided
+    useEffect(() => {
+        if (selectedText && setComposerValue) {
+            setComposerValue({ text: `Explain this: "${selectedText}"` });
+            if (focusComposer) {
+                focusComposer();
+            }
+        }
+    }, [selectedText, setComposerValue, focusComposer]);
+
+    return (
+        <div className={styles.chatBody}>
+            <ChatKit control={control} />
+        </div>
+    );
+};
+
+/**
+ * Floating Chat Widget - appears as a button in the bottom-right corner
+ * Opens a popup panel with the ChatKit interface
+ */
+const FloatingChatWidget: React.FC = () => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [initialThread, setInitialThread] = useState<string | null>(null);
+    const [selectedText, setSelectedText] = useState<string | null>(null);
+    const [chatKey, setChatKey] = useState(0);
+
+    useEffect(() => {
+        const savedThread = localStorage.getItem('chatkit-thread-id');
+        setInitialThread(savedThread || null);
+
+        // Listen for the custom event to update selected text
+        const handleOpenChatWithSelection = (event: CustomEvent) => {
+            setSelectedText(event.detail.text);
+            setChatKey(prev => prev + 1);  // Increment to force clean ChatKit remount
+            setIsOpen(true);
+        };
+
+        const eventListener = (event: Event) => handleOpenChatWithSelection(event as CustomEvent);
+        window.addEventListener('openChatWithSelection', eventListener);
+
+        return () => {
+            window.removeEventListener('openChatWithSelection', eventListener);
+        };
+    }, []);
 
     const toggleChat = () => {
         setIsOpen(!isOpen);
@@ -55,8 +97,12 @@ const FloatingChatWidget: React.FC = () => {
     const startNewChat = () => {
         localStorage.removeItem('chatkit-thread-id');
         setInitialThread(null);
-        // Force re-render
-        window.location.reload();
+        setSelectedText(null); // Clear selection on new chat
+        setChatKey(prev => prev + 1);  // Force ChatKit remount for fresh state
+    };
+
+    const handleThreadChange = (threadId: string) => {
+        localStorage.setItem('chatkit-thread-id', threadId);
     };
 
     return (
@@ -84,7 +130,9 @@ const FloatingChatWidget: React.FC = () => {
             </button>
 
             {/* Chat panel */}
-            <div className={`${styles.chatPanel} ${isOpen ? styles.chatPanelOpen : ''}`}>
+            <div
+                className={`${styles.chatPanel} ${isOpen ? styles.chatPanelOpen : ''}`}
+            >
                 <div className={styles.chatHeader}>
                     <span className={styles.chatTitle}>Documentation Assistant</span>
                     <div className={styles.headerButtons}>
@@ -105,9 +153,14 @@ const FloatingChatWidget: React.FC = () => {
                         </button>
                     </div>
                 </div>
-                <div className={styles.chatBody}>
-                    <ChatKit control={control} />
-                </div>
+
+                {/* Remount ChatKit when chatKey changes to force config update */}
+                <FloatingChatInner
+                    key={chatKey}
+                    selectedText={selectedText}
+                    initialThread={selectedText ? null : initialThread}
+                    onThreadChange={handleThreadChange}
+                />
             </div>
 
             {/* Overlay when chat is open on mobile */}

@@ -216,6 +216,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Qdrant vector database (cloud), with metadata storage (001-qdrant-integration)
 - Python 3.12+ (Backend), TypeScript/React 18+ (Frontend), Node.js 20+ (Auth) + FastAPI (Backend), Docusaurus 3.x (Frontend), OpenAI ChatKit, Qdrant Client (003-chatkit-implementation)
 - PostgreSQL (User/Chat History), Qdrant (Vectors), In-memory store (ChatKit) (003-chatkit-implementation)
+- TypeScript 5.x (Frontend), Python 3.12+ (Backend), Node.js 20+ (Auth) + Docusaurus 3.x, React 19, FastAPI, Qdrant Client (004-text-selection)
+- N/A (No new storage needed, uses existing Qdrant and PostgreSQL) (004-text-selection)
 
 ## Recent Changes
 - 001-physical-ai-book: Added Python 3.10+ (Primary), C++17 (Performance critical nodes) + ROS 2 Humble Hawksbill, NVIDIA Isaac Sim (4.0+), Gazebo (Fortress/Harmonic), PyTorch (CUDA 12.x), OpenAI API (Whisper, GPT-4o), NVIDIA Isaac ROS GEMs
