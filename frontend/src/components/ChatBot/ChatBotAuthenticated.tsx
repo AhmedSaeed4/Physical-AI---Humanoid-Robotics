@@ -4,25 +4,70 @@ import { ChatKit, useChatKit } from '@openai/chatkit-react';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './ChatBot.module.css';
 
-interface ChatBotAuthenticatedProps {
-  authToken: string;
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  educationLevel: string;
+  programmingExperience: string;
+  roboticsBackground: string;
+  softwareBackground?: string;
+  hardwareBackground?: string;
 }
 
-const ChatBotAuthenticated: React.FC<ChatBotAuthenticatedProps> = ({ authToken }) => {
+interface ChatBotAuthenticatedProps {
+  initialSelectedText?: string;
+  user: User;
+}
+
+const ChatBotAuthenticated: React.FC<ChatBotAuthenticatedProps> = ({ initialSelectedText, user }) => {
   const [showThreadHistory, setShowThreadHistory] = useState(false);
   const [initialThread, setInitialThread] = useState<string | null>(null);
+  const [selectedText, setSelectedText] = useState<string | undefined>(initialSelectedText);
 
   useEffect(() => {
     const savedThread = localStorage.getItem('chatkit-thread-id');
     setInitialThread(savedThread || null);
+
+    // Listen for the custom event to update selected text
+    const handleOpenChatWithSelection = (event: CustomEvent) => {
+      setSelectedText(event.detail.text);
+    };
+
+    // Add event listener using addEventListener
+    const eventListener = (event: Event) => handleOpenChatWithSelection(event as CustomEvent);
+    window.addEventListener('openChatWithSelection', eventListener);
+
+    // Cleanup function to remove event listener
+    return () => {
+      window.removeEventListener('openChatWithSelection', eventListener);
+    };
   }, []);
 
   const { siteConfig } = useDocusaurusContext();
   const backendUrl = (siteConfig.customFields?.backendUrl as string) || 'http://localhost:8000';
+
+  // Prepare personalized greeting based on user profile
+  const getPersonalizedGreeting = () => {
+    const experienceLevel = user.programmingExperience?.toLowerCase() || 'beginner';
+    const educationLevel = user.educationLevel?.toLowerCase() || 'undergraduate';
+
+    if (experienceLevel.includes('beginner') || experienceLevel.includes('no experience')) {
+      return `Hello ${user.name}! I'm here to help you learn. Ask me about the book content and I'll explain concepts at a beginner-friendly level.`;
+    } else if (experienceLevel.includes('advanced')) {
+      return `Welcome back ${user.name}! Ready for some in-depth technical discussions? Ask me anything about the book content.`;
+    } else {
+      return `Hello ${user.name}! I'm here to help you understand the book content based on your background. Feel free to ask questions.`;
+    }
+  };
+
   const { control } = useChatKit({
     api: {
-      url: `${backendUrl}/api/chatkit`,
+      url: `${backendUrl}/api/chatkit-auth`, // Use authenticated endpoint
       domainKey: 'localhost',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`,
+      }
     } as any, // Note: headers not supported in ChatKit types, auth handled by backend
     initialThread: initialThread,
     theme: {
@@ -34,14 +79,17 @@ const ChatBotAuthenticated: React.FC<ChatBotAuthenticatedProps> = ({ authToken }
       radius: 'round',
     },
     startScreen: {
-      greeting: 'Ask questions about the book content!',
+      greeting: getPersonalizedGreeting(),
       prompts: [
         { label: 'What is this book about?', prompt: 'What is this book about?' },
-        { label: 'Help me understand', prompt: 'Help me understand a concept from the book' },
+        { label: 'Help me understand', prompt: `Help me understand a concept from the book as a ${user.educationLevel} level ${user.programmingExperience} with ${user.roboticsBackground} background` },
+        ...(selectedText ? [{ label: `Explain: ${selectedText.substring(0, 30)}...`, prompt: `Explain: ${selectedText}` }] : []),
       ],
     },
     composer: {
-      placeholder: 'Ask a question about the book content...',
+      placeholder: selectedText
+        ? `Ask about: "${selectedText.substring(0, 60)}${selectedText.length > 60 ? '...' : ''}"`
+        : `Ask a question (personalized for ${user.educationLevel} level ${user.programmingExperience})...`,
     },
     onThreadChange: ({ threadId }) => {
       if (threadId) {
@@ -92,7 +140,14 @@ const ChatBotAuthenticated: React.FC<ChatBotAuthenticatedProps> = ({ authToken }
   return (
     <div className={clsx('container', styles.chatContainer)}>
       <div className={styles.chatHeader}>
-        <h2>Book Content Q&A</h2>
+        <div className={styles.userProfileInfo}>
+          <h2>Personalized Q&A for {user.name}</h2>
+          <div className={styles.profileTags}>
+            <span className={styles.profileTag}>{user.educationLevel}</span>
+            <span className={styles.profileTag}>{user.programmingExperience}</span>
+            <span className={styles.profileTag}>{user.roboticsBackground}</span>
+          </div>
+        </div>
         <div className={styles.threadControls}>
           <button
             className={styles.newThreadButton}
@@ -110,6 +165,25 @@ const ChatBotAuthenticated: React.FC<ChatBotAuthenticatedProps> = ({ authToken }
           </button>
         </div>
       </div>
+
+      {/* Display selected text context if available */}
+      {selectedText && (
+        <div className={styles.selectedTextContext}>
+          <div className={styles.selectedTextHeader}>
+            <span>Selected from book:</span>
+            <button
+              className={styles.clearSelectedText}
+              onClick={() => setSelectedText(undefined)}
+              title="Clear selected text"
+            >
+              ×
+            </button>
+          </div>
+          <div className={styles.selectedTextContent}>
+            "{selectedText}"
+          </div>
+        </div>
+      )}
 
       {showThreadHistory && (
         <div className={styles.threadHistoryPanel}>

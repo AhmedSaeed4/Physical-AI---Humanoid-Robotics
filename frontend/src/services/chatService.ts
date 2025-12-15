@@ -1,5 +1,18 @@
 import { useState } from 'react';
 
+interface ChatHistoryItem {
+  id: number;
+  message: string;
+  response: string;
+  selectedText?: string;
+  createdAt: string; // ISO date string
+}
+
+interface ChatHistoryResponse {
+  history: ChatHistoryItem[];
+  total: number;
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -24,28 +37,28 @@ interface ChatResponse {
 
 export interface ChatService {
   sendMessage: (message: string, selectedText?: string) => Promise<ChatResponse>;
-  getChatHistory: () => ChatMessage[];
+  getChatHistory: (limit?: number, offset?: number) => Promise<ChatHistoryResponse>;
+  getLocalChatHistory: () => ChatMessage[];
   clearHistory: () => void;
 }
 
 export const useChatService = (): ChatService => {
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [localChatHistory, setLocalChatHistory] = useState<ChatMessage[]>([]);
 
   const sendMessage = async (message: string, selectedText?: string): Promise<ChatResponse> => {
     // Use production URL if available, fallback to localhost for development
-    // This URL is configured at build time via docusaurus.config.ts customFields
-    const backendUrl = 'http://localhost:8000'; // Will be overridden in components using useDocusaurusContext
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
     try {
       const response = await fetch(`${backendUrl}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token') || 'test-token'}` // Use test token for now
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
         },
         body: JSON.stringify({
           user_query: message,
           selected_text: selectedText || null,
-          chat_history: chatHistory,
+          chat_history: localChatHistory,
           user_profile: null // Add user profile if available
         })
       });
@@ -56,8 +69,8 @@ export const useChatService = (): ChatService => {
 
       const data: ChatResponse = await response.json();
 
-      // Update chat history
-      setChatHistory(prev => [
+      // Update local chat history
+      setLocalChatHistory(prev => [
         ...prev,
         { role: 'user', content: message },
         { role: 'assistant', content: data.output }
@@ -70,15 +83,38 @@ export const useChatService = (): ChatService => {
     }
   };
 
-  const getChatHistory = () => chatHistory;
+  const getChatHistory = async (limit: number = 50, offset: number = 0): Promise<ChatHistoryResponse> => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    try {
+      const response = await fetch(`${backendUrl}/api/chat/history?limit=${limit}&offset=${offset}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ChatHistoryResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      throw error;
+    }
+  };
+
+  const getLocalChatHistory = () => localChatHistory;
 
   const clearHistory = () => {
-    setChatHistory([]);
+    setLocalChatHistory([]);
   };
 
   return {
     sendMessage,
     getChatHistory,
+    getLocalChatHistory,
     clearHistory
   };
 };

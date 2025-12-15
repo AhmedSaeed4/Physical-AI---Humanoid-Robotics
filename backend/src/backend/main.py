@@ -135,10 +135,25 @@ class ChatKitServerImpl(ChatKitServer):
         else:
             context_str = "No relevant information found in the book content."
 
-        # Build system prompt with selected text context if available
+        # Extract user profile from context if available
+        user_profile_context = ""
+        if context and isinstance(context, dict):
+            user = context.get('user', {})
+            if user:
+                user_profile_context = f"""
+                The user has the following background:
+                - Education level: {user.get('educationLevel', user.get('education_level', 'Not specified'))}
+                - Programming experience: {user.get('programmingExperience', user.get('programming_experience', 'Not specified'))}
+                - Robotics background: {user.get('roboticsBackground', user.get('robotics_background', 'Not specified'))}
+
+                Tailor your explanations to match their experience level.
+                """
+
+        # Build system prompt with selected text context if available and user profile if available
         if selected_text:
             system_prompt = f"""
             You are a helpful assistant helping users understand book content.
+            {user_profile_context}
 
             The user has selected this specific text from the book:
             "{selected_text}"
@@ -151,6 +166,7 @@ class ChatKitServerImpl(ChatKitServer):
         else:
             system_prompt = f"""
             You are a helpful assistant that answers questions based on the provided book content.
+            {user_profile_context}
             Use the following context to answer the user's question: {context_str}
 
             If the context doesn't contain information to answer the question, say so.
@@ -236,8 +252,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://physical-ai-humanoid-robotics-ai.netlify.app",  # Production frontend
-        "http://localhost:3000",  # Local development
-        "http://localhost:3001",
+        "http://localhost:3000",  # Frontend (Docusaurus)
+        "http://localhost:3001",  # Auth Server
+        "http://localhost:8000",  # Backend (self - for frontend to backend calls)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -440,10 +457,23 @@ async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_c
         else:
             context_str = "No relevant information found in the book content."
 
-        # Build system prompt with selected text context if available
+        # Build system prompt with selected text context if available and user profile if available
+        # Extract user profile from the authenticated user
+        user_profile_context = ""
+        if current_user:
+            user_profile_context = f"""
+            The user has the following background:
+            - Education level: {getattr(current_user, 'educationLevel', getattr(current_user, 'education_level', 'Not specified'))}
+            - Programming experience: {getattr(current_user, 'programmingExperience', getattr(current_user, 'programming_experience', 'Not specified'))}
+            - Robotics background: {getattr(current_user, 'roboticsBackground', getattr(current_user, 'robotics_background', 'Not specified'))}
+
+            Tailor your explanations to match their experience level.
+            """
+
         if request.selected_text:
             system_prompt = f"""
             You are a helpful assistant helping users understand book content.
+            {user_profile_context}
 
             The user has selected this specific text from the book:
             "{request.selected_text}"
@@ -456,15 +486,11 @@ async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_c
         else:
             system_prompt = f"""
             You are a helpful assistant that answers questions based on book content provided in the context.
+            {user_profile_context}
             Use the following context to answer the user's query: {context_str}
 
             If the context doesn't contain enough information, clearly state that you couldn't find relevant information.
             """
-
-        # Include user profile information if available
-        if request.user_profile:
-            profile_context = f"\nUser profile: {request.user_profile}"
-            system_prompt += profile_context
 
         # Create the agent with the enhanced prompt
         agent = Agent(
@@ -476,6 +502,40 @@ async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_c
         # Run the agent with the user query
         result = await Runner.run(agent, request.user_query, run_config=config)
         ai_response = result.final_output
+
+        # Save the chat message and response to the database
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+            import os
+            from dotenv import load_dotenv
+            load_dotenv()
+
+            conn = psycopg2.connect(
+                dsn=os.getenv('DATABASE_URL'),
+                sslmode='require'
+            )
+
+            cursor = conn.cursor()
+
+            # Insert the chat message and response into the database
+            insert_query = """
+                INSERT INTO "chat_history" ("userId", "message", "response", "selectedText")
+                VALUES (%s, %s, %s, %s)
+            """
+
+            # Get user ID from the authenticated user
+            user_id = current_user.sub if hasattr(current_user, 'sub') else current_user.get('sub') if isinstance(current_user, dict) else None
+
+            cursor.execute(insert_query, (user_id, request.user_query, ai_response, request.selected_text))
+            conn.commit()
+
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            # Log the error but don't fail the entire request
+            print(f"Error saving chat history: {str(e)}")
+            # Optionally, you could add error handling here
 
         # Format context chunks for response
         context_chunks = [
@@ -549,6 +609,95 @@ async def search_endpoint(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing search request: {str(e)}")
+
+
+# Add Pydantic models for chat history
+from pydantic import BaseModel
+from typing import List, Optional
+from datetime import datetime
+
+class ChatHistoryItem(BaseModel):
+    id: int
+    message: str
+    response: str
+    selectedText: Optional[str] = None
+    createdAt: datetime
+
+class ChatHistoryResponse(BaseModel):
+    history: List[ChatHistoryItem]
+    total: int
+
+
+@app.get("/api/chat/history", response_model=ChatHistoryResponse)
+async def get_chat_history(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=100, description="Number of messages to return"),
+    offset: int = Query(default=0, ge=0, description="Offset for pagination"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get chat history for the authenticated user
+    """
+    try:
+        # Get user ID from the authenticated user
+        user_id = current_user.sub if hasattr(current_user, 'sub') else current_user.get('sub') if isinstance(current_user, dict) else None
+
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated properly")
+
+        # Connect to database and fetch chat history
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        conn = psycopg2.connect(
+            dsn=os.getenv('DATABASE_URL'),
+            sslmode='require'
+        )
+
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Query chat history for the user
+        query = """
+            SELECT id, message, response, "selectedText", "createdAt"
+            FROM "chat_history"
+            WHERE "userId" = %s
+            ORDER BY "createdAt" DESC
+            LIMIT %s OFFSET %s
+        """
+
+        cursor.execute(query, (user_id, limit, offset))
+        results = cursor.fetchall()
+
+        # Convert results to ChatHistoryItem objects
+        history_items = []
+        for row in results:
+            history_items.append(ChatHistoryItem(
+                id=row['id'],
+                message=row['message'],
+                response=row['response'],
+                selectedText=row['selectedText'],
+                createdAt=row['createdAt']
+            ))
+
+        # Get total count for pagination
+        count_query = "SELECT COUNT(*) as total FROM \"chat_history\" WHERE \"userId\" = %s"
+        cursor.execute(count_query, (user_id,))
+        total = cursor.fetchone()['total']
+
+        cursor.close()
+        conn.close()
+
+        return ChatHistoryResponse(
+            history=history_items,
+            total=total
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching chat history: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

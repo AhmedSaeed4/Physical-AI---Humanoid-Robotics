@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './FloatingChatWidget.module.css';
+import { authService } from '../../services/authService';
+import LoginPrompt from './LoginPrompt';
 
 /**
  * Floating Chat Widget - appears as a button in the bottom-right corner
@@ -72,6 +74,8 @@ const FloatingChatWidget: React.FC = () => {
     const [initialThread, setInitialThread] = useState<string | null>(null);
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const [chatKey, setChatKey] = useState(0);
+    // Direct auth check - no Context needed
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
     useEffect(() => {
         const savedThread = localStorage.getItem('chatkit-thread-id');
@@ -91,6 +95,53 @@ const FloatingChatWidget: React.FC = () => {
             window.removeEventListener('openChatWithSelection', eventListener);
         };
     }, []);
+
+    // Check auth status on mount and when widget opens
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const user = await authService.checkAuthStatus();
+                setIsAuthenticated(!!user);
+            } catch {
+                setIsAuthenticated(false);
+            }
+        };
+        checkAuth();
+
+        // Re-check auth when localStorage changes (e.g., after login in another tab/page)
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'auth_user') {
+                checkAuth();
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+
+        // Listen for auth changes from same page (login/logout dispatch custom event)
+        const handleAuthChanged = () => {
+            checkAuth();
+        };
+        window.addEventListener('auth_changed', handleAuthChanged);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('auth_changed', handleAuthChanged);
+        };
+    }, []);
+
+    // Re-check auth every time the widget is opened
+    useEffect(() => {
+        if (isOpen) {
+            const checkAuth = async () => {
+                try {
+                    const user = await authService.checkAuthStatus();
+                    setIsAuthenticated(!!user);
+                } catch {
+                    setIsAuthenticated(false);
+                }
+            };
+            checkAuth();
+        }
+    }, [isOpen]);
 
     const toggleChat = () => {
         setIsOpen(!isOpen);
@@ -156,13 +207,23 @@ const FloatingChatWidget: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Remount ChatKit when chatKey changes to force config update */}
-                <FloatingChatInner
-                    key={chatKey}
-                    selectedText={selectedText}
-                    initialThread={selectedText ? null : initialThread}
-                    onThreadChange={handleThreadChange}
-                />
+                {/* Auth gate: Show LoginPrompt if not authenticated, ChatKit otherwise */}
+                {isAuthenticated === null ? (
+                    <div className={styles.chatBody} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span>Loading...</span>
+                    </div>
+                ) : isAuthenticated ? (
+                    <FloatingChatInner
+                        key={chatKey}
+                        selectedText={selectedText}
+                        initialThread={selectedText ? null : initialThread}
+                        onThreadChange={handleThreadChange}
+                    />
+                ) : (
+                    <div className={styles.chatBody}>
+                        <LoginPrompt />
+                    </div>
+                )}
             </div>
 
             {/* Overlay when chat is open on mobile */}

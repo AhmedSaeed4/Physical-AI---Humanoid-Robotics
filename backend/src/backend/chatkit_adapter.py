@@ -132,10 +132,23 @@ class ChatKitRAGAdapter:
             else:
                 context_str = "No relevant information found in the book content."
 
-            # Build system prompt with selected text context if available
+            # Build system prompt with selected text context if available and user profile if available
+            # For now, we'll add a placeholder for user profile - this will be populated when the adapter gets user data
+            user_profile_context = ""
+            if hasattr(self, 'user_profile') and self.user_profile:
+                user_profile_context = f"""
+                The user has the following background:
+                - Education level: {self.user_profile.get('educationLevel', 'Not specified')}
+                - Programming experience: {self.user_profile.get('programmingExperience', 'Not specified')}
+                - Robotics background: {self.user_profile.get('roboticsBackground', 'Not specified')}
+
+                Tailor your explanations to match their experience level.
+                """
+
             if selected_text:
                 system_prompt = f"""
                 You are a helpful assistant helping users understand book content.
+                {user_profile_context}
 
                 The user has selected this specific text from the book:
                 "{selected_text}"
@@ -148,6 +161,7 @@ class ChatKitRAGAdapter:
             else:
                 system_prompt = f"""
                 You are a helpful assistant that answers questions based on book content provided in the context.
+                {user_profile_context}
                 Use the following context to answer the user's query: {context_str}
 
                 If the context doesn't contain enough information, clearly state that you couldn't find relevant information.

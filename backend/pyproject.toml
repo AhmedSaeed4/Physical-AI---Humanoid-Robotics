@@ -15,8 +15,10 @@ dependencies = [
     "openai-agents[litellm]>=0.6.2",
     "openai-chatkit>=1.4.0",
     "passlib>=1.7.4",
+    "psycopg2-binary>=2.9.11",
     "pyjwt>=2.10.1",
     "python-dotenv>=1.2.1",
+    "python-jose[cryptography]>=3.5.0",
     "qdrant-client>=1.16.1",
     "uvicorn>=0.38.0",
 ]
