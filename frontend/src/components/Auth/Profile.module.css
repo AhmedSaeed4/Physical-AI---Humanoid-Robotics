@@ -1,0 +1,215 @@
+/* Base styling for profile components using Infima variables */
+
+.profileContainer {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  border-radius: var(--ifm-global-radius);
+  box-shadow: var(--ifm-global-shadow-lw);
+  background-color: var(--ifm-card-background-color);
+}
+
+.profileTitle {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--ifm-heading-color);
+  font-size: 1.5rem;
+  font-weight: var(--ifm-font-weight-bold);
+}
+
+.profileInfo {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: var(--ifm-color-emphasis-100);
+  border-radius: var(--ifm-global-radius);
+}
+
+.profileInfoItem {
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.profileInfoLabel {
+  font-weight: var(--ifm-font-weight-semibold);
+  color: var(--ifm-font-color-base);
+}
+
+.profileInfoValue {
+  color: var(--ifm-font-color-base);
+}
+
+.profileForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.formSection {
+  padding: 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-global-radius);
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: var(--ifm-font-weight-semibold);
+  margin-bottom: 1rem;
+  color: var(--ifm-heading-color);
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.formLabel {
+  font-weight: var(--ifm-font-weight-semibold);
+  color: var(--ifm-label-color);
+}
+
+.formSelect {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ifm-form-border-color);
+  border-radius: var(--ifm-form-element-radius);
+  font-size: var(--ifm-font-size-base);
+  background-color: var(--ifm-form-background-color);
+  color: var(--ifm-font-color-base);
+}
+
+.formSelect:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+  box-shadow: var(--ifm-focus-ring);
+}
+
+.submitButton {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--ifm-color-primary);
+  color: var(--ifm-button-color);
+  border: none;
+  border-radius: var(--ifm-button-border-radius);
+  font-size: var(--ifm-font-size-base);
+  font-weight: var(--ifm-font-weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--ifm-transition-fast) ease;
+  align-self: flex-start;
+}
+
+.submitButton:hover {
+  background-color: var(--ifm-color-primary-dark);
+}
+
+.submitButton:disabled {
+  background-color: var(--ifm-color-secondary);
+  cursor: not-allowed;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--ifm-color-secondary);
+  border-radius: 50%;
+  border-top-color: var(--ifm-color-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.errorMessage {
+  background-color: var(--ifm-color-danger-lightest);
+  color: var(--ifm-color-danger);
+  padding: 0.75rem 1rem;
+  border-radius: var(--ifm-global-radius);
+  border-left: 3px solid var(--ifm-color-danger);
+  margin-bottom: 1rem;
+}
+
+.successMessage {
+  background-color: var(--ifm-color-success-lightest);
+  color: var(--ifm-color-success);
+  padding: 0.75rem 1rem;
+  border-radius: var(--ifm-global-radius);
+  border-left: 3px solid var(--ifm-color-success);
+  margin-bottom: 1rem;
+}
+
+.notLoggedIn {
+  text-align: center;
+  padding: 2rem;
+  color: var(--ifm-font-color-base);
+}
+
+.loginPrompt {
+  margin-top: 1rem;
+}
+
+.loginLink {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+  font-weight: var(--ifm-font-weight-semibold);
+}
+
+.loginLink:hover {
+  text-decoration: underline;
+}
+
+.profileHeader {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.profileDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profileLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  font-size: 1.2rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+.authTitle {
+  color: var(--ifm-heading-color);
+  margin-bottom: 1rem;
+}
+
+.logoutSection {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--ifm-color-emphasis-300);
+  text-align: center;
+}
+
+.logoutButton {
+  padding: 0.75rem 2rem;
+  background-color: var(--ifm-color-danger);
+  color: white;
+  border: none;
+  border-radius: var(--ifm-button-border-radius);
+  font-size: var(--ifm-font-size-base);
+  font-weight: var(--ifm-font-weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--ifm-transition-fast) ease;
+}
+
+.logoutButton:hover {
+  background-color: var(--ifm-color-danger-dark);
+}
+
+.logoutButton:disabled {
+  background-color: var(--ifm-color-secondary);
+  cursor: not-allowed;
+}

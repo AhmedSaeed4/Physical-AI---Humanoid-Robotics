@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import SignupForm from '../components/Auth/SignupForm';
 import LoginForm from '../components/Auth/LoginForm';
 import { useHistory } from 'react-router-dom';
+import styles from '../components/Auth/Auth.module.css';
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,17 +18,18 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-toggle">
+    <div className={styles.authPage}>
+      <div className={styles.authContainer}>
+        <div className={styles.authToggle}>
           <button
-            className={isLogin ? 'active' : ''}
+            className={`${styles.authToggleLink} ${isLogin ? styles.active : ''}`}
             onClick={() => setIsLogin(true)}
           >
             Login
           </button>
+          <span> | </span>
           <button
-            className={!isLogin ? 'active' : ''}
+            className={`${styles.authToggleLink} ${!isLogin ? styles.active : ''}`}
             onClick={() => setIsLogin(false)}
           >
             Sign Up

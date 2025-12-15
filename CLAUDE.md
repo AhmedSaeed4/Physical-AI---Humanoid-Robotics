@@ -220,6 +220,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - N/A (No new storage needed, uses existing Qdrant and PostgreSQL) (004-text-selection)
 - Python 3.12+ (Backend), TypeScript 5.x (Frontend), Node.js 20+ (Auth Server) + FastAPI (Backend), Docusaurus 3.x/React 19 (Frontend), Better Auth/Express (Auth), PostgreSQL (Neon), Qdrant Client, OpenAI Agents SDK, Google Gemini (005-auth-neon-integration)
 - PostgreSQL (Neon) for users/sessions/chat history, Qdrant (cloud) for vector search (005-auth-neon-integration)
+- TypeScript 5.x (Frontend), Python 3.12+ (Backend), Node.js 20+ (Auth Server) + Docusaurus 3.x, React 19, CSS Modules, Infima, Better Auth (006-auth-styling)
+- N/A (No new storage needed, uses existing PostgreSQL and Qdrant) (006-auth-styling)
 
 ## Recent Changes
 - 001-physical-ai-book: Added Python 3.10+ (Primary), C++17 (Performance critical nodes) + ROS 2 Humble Hawksbill, NVIDIA Isaac Sim (4.0+), Gazebo (Fortress/Harmonic), PyTorch (CUDA 12.x), OpenAI API (Whisper, GPT-4o), NVIDIA Isaac ROS GEMs

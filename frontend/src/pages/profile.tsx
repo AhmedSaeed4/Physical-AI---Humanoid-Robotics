@@ -1,54 +1,100 @@
 import React from 'react';
+import Layout from '@theme/Layout';
 import ProfileForm from '../components/Auth/ProfileForm';
 import { useAuth, AuthProvider } from '../contexts/AuthContext';
+import { authService } from '../services/authService';
+import styles from '../components/Auth/Profile.module.css';
 
 const ProfilePageContent: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const [loggingOut, setLoggingOut] = React.useState(false);
 
-  if (loading) {
-    return <div className="profile-loading">Loading...</div>;
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await authService.logout();
+      // Redirect to home after logout
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setLoggingOut(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <Layout title="Profile">
+        <div className={styles.profileLoading}>Loading...</div>
+      </Layout>
+    );
   }
 
   if (!user) {
     return (
-      <div className="profile-auth-required">
-        <h2>Access Denied</h2>
-        <p>Please log in to access your profile.</p>
-        <button
-          className="auth-button"
-          onClick={() => window.location.href = '/auth'}
-        >
-          Go to Login
-        </button>
-      </div>
+      <Layout title="Profile">
+        <div className={styles.notLoggedIn}>
+          <h2 className={styles.authTitle}>Access Denied</h2>
+          <p>Please log in to access your profile.</p>
+          <button
+            className={styles.submitButton}
+            onClick={() => window.location.href = '/auth'}
+          >
+            Go to Login
+          </button>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="profile-page">
-      <div className="profile-container">
-        <div className="profile-header">
-          <h1>Your Profile</h1>
+    <Layout title="Your Profile">
+      <div className={styles.profileContainer}>
+        <div className={styles.profileHeader}>
+          <h1 className={styles.profileTitle}>Your Profile</h1>
           <p>Update your learning preferences to get personalized responses</p>
         </div>
 
-        <div className="profile-info">
-          <h3>Current Information</h3>
-          <div className="profile-details">
-            <p><strong>Name:</strong> {user.name}</p>
-            <p><strong>Email:</strong> {user.email}</p>
-            <p><strong>Education Level:</strong> {user.educationLevel || 'Not specified'}</p>
-            <p><strong>Programming Experience:</strong> {user.programmingExperience || 'Not specified'}</p>
-            <p><strong>Robotics Background:</strong> {user.roboticsBackground || 'Not specified'}</p>
+        <div className={styles.profileInfo}>
+          <h3 className={styles.sectionTitle}>Current Information</h3>
+          <div className={styles.profileDetails}>
+            <div className={styles.profileInfoItem}>
+              <span className={styles.profileInfoLabel}>Name:</span>
+              <span className={styles.profileInfoValue}>{user.name}</span>
+            </div>
+            <div className={styles.profileInfoItem}>
+              <span className={styles.profileInfoLabel}>Email:</span>
+              <span className={styles.profileInfoValue}>{user.email}</span>
+            </div>
+            <div className={styles.profileInfoItem}>
+              <span className={styles.profileInfoLabel}>Education Level:</span>
+              <span className={styles.profileInfoValue}>{user.educationLevel || 'Not specified'}</span>
+            </div>
+            <div className={styles.profileInfoItem}>
+              <span className={styles.profileInfoLabel}>Programming Experience:</span>
+              <span className={styles.profileInfoValue}>{user.programmingExperience || 'Not specified'}</span>
+            </div>
+            <div className={styles.profileInfoItem}>
+              <span className={styles.profileInfoLabel}>Robotics Background:</span>
+              <span className={styles.profileInfoValue}>{user.roboticsBackground || 'Not specified'}</span>
+            </div>
           </div>
         </div>
 
-        <div className="profile-form-section">
-          <h3>Update Learning Preferences</h3>
+        <div className={styles.formSection}>
           <ProfileForm />
         </div>
+
+        <div className={styles.logoutSection}>
+          <button
+            className={styles.logoutButton}
+            onClick={handleLogout}
+            disabled={loggingOut}
+          >
+            {loggingOut ? 'Logging out...' : 'Log Out'}
+          </button>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

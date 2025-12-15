@@ -91,6 +91,10 @@ const config: Config = {
           label: 'GitHub',
           position: 'right',
         },
+        {
+          position: 'right',
+          type: 'custom-NavbarProfileButton',
+        },
       ],
     },
     footer: {

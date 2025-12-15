@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { authService } from '../../services/authService';
+import styles from './Auth.module.css';
 
 interface FormData {
   email: string;
@@ -76,13 +77,13 @@ const SignupForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="signup-form-container">
-      <h2>Create Account</h2>
-      {error && <div className="error-message">{error}</div>}
+    <div className={styles.authContainer}>
+      <h2 className={styles.authTitle}>Create Account</h2>
+      {error && <div className={styles.errorMessage}>{error}</div>}
 
-      <form onSubmit={handleSubmit} className="auth-form">
-        <div className="form-group">
-          <label htmlFor="name">Full Name</label>
+      <form onSubmit={handleSubmit} className={styles.authForm}>
+        <div className={styles.formGroup}>
+          <label htmlFor="name" className={styles.formLabel}>Full Name</label>
           <input
             type="text"
             id="name"
@@ -90,12 +91,12 @@ const SignupForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             value={formData.name}
             onChange={handleChange}
             required
-            className="form-input"
+            className={styles.formInput}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="email">Email</label>
+        <div className={styles.formGroup}>
+          <label htmlFor="email" className={styles.formLabel}>Email</label>
           <input
             type="email"
             id="email"
@@ -103,12 +104,12 @@ const SignupForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="form-input"
+            className={styles.formInput}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
+        <div className={styles.formGroup}>
+          <label htmlFor="password" className={styles.formLabel}>Password</label>
           <input
             type="password"
             id="password"
@@ -117,18 +118,18 @@ const SignupForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             onChange={handleChange}
             required
             minLength={8}
-            className="form-input"
+            className={styles.formInput}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="educationLevel">Education Level</label>
+        <div className={styles.formGroup}>
+          <label htmlFor="educationLevel" className={styles.formLabel}>Education Level</label>
           <select
             id="educationLevel"
             name="educationLevel"
             value={formData.educationLevel}
             onChange={handleChange}
-            className="form-select"
+            className={styles.formSelect}
           >
             {educationLevels.map(level => (
               <option key={level} value={level}>{level}</option>
@@ -136,14 +137,14 @@ const SignupForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
           </select>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="programmingExperience">Programming Experience</label>
+        <div className={styles.formGroup}>
+          <label htmlFor="programmingExperience" className={styles.formLabel}>Programming Experience</label>
           <select
             id="programmingExperience"
             name="programmingExperience"
             value={formData.programmingExperience}
             onChange={handleChange}
-            className="form-select"
+            className={styles.formSelect}
           >
             {programmingExperiences.map(exp => (
               <option key={exp} value={exp}>{exp}</option>
@@ -151,14 +152,14 @@ const SignupForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
           </select>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="roboticsBackground">Robotics Background</label>
+        <div className={styles.formGroup}>
+          <label htmlFor="roboticsBackground" className={styles.formLabel}>Robotics Background</label>
           <select
             id="roboticsBackground"
             name="roboticsBackground"
             value={formData.roboticsBackground}
             onChange={handleChange}
-            className="form-select"
+            className={styles.formSelect}
           >
             {roboticsBackgrounds.map(bg => (
               <option key={bg} value={bg}>{bg}</option>
@@ -169,9 +170,13 @@ const SignupForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         <button
           type="submit"
           disabled={loading}
-          className="auth-button"
+          className={styles.submitButton}
         >
-          {loading ? 'Creating Account...' : 'Sign Up'}
+          {loading ? (
+            <>
+              <span className={styles.loadingSpinner}></span> Creating Account...
+            </>
+          ) : 'Sign Up'}
         </button>
       </form>
     </div>

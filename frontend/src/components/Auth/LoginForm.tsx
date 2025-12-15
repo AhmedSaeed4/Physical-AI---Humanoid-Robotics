@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { authService } from '../../services/authService';
+import styles from './Auth.module.css';
 
 interface FormData {
   email: string;
@@ -47,13 +48,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="login-form-container">
-      <h2>Login to Your Account</h2>
-      {error && <div className="error-message">{error}</div>}
+    <div className={styles.authContainer}>
+      <h2 className={styles.authTitle}>Login to Your Account</h2>
+      {error && <div className={styles.errorMessage}>{error}</div>}
 
-      <form onSubmit={handleSubmit} className="auth-form">
-        <div className="form-group">
-          <label htmlFor="email">Email</label>
+      <form onSubmit={handleSubmit} className={styles.authForm}>
+        <div className={styles.formGroup}>
+          <label htmlFor="email" className={styles.formLabel}>Email</label>
           <input
             type="email"
             id="email"
@@ -61,12 +62,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="form-input"
+            className={styles.formInput}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
+        <div className={styles.formGroup}>
+          <label htmlFor="password" className={styles.formLabel}>Password</label>
           <input
             type="password"
             id="password"
@@ -74,16 +75,20 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             value={formData.password}
             onChange={handleChange}
             required
-            className="form-input"
+            className={styles.formInput}
           />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="auth-button"
+          className={styles.submitButton}
         >
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? (
+            <>
+              <span className={styles.loadingSpinner}></span> Logging in...
+            </>
+          ) : 'Login'}
         </button>
       </form>
     </div>

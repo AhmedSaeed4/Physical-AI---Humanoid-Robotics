@@ -1,0 +1,66 @@
+/* Base styling for navbar profile button using Infima variables */
+
+.navbarProfileButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 50%;
+  background-color: var(--ifm-color-emphasis-200);
+  color: var(--ifm-color-emphasis-800);
+  text-decoration: none;
+  font-weight: var(--ifm-font-weight-semibold);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--ifm-transition-fast) ease;
+  border: none;
+  margin-left: 0.5rem;
+}
+
+.navbarProfileButton:hover {
+  background-color: var(--ifm-color-emphasis-300);
+  text-decoration: none;
+}
+
+.navbarProfileButton:focus {
+  outline: none;
+  box-shadow: var(--ifm-focus-ring);
+}
+
+.navbarLoginLink {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: var(--ifm-button-border-radius);
+  background-color: var(--ifm-color-emphasis-200);
+  color: var(--ifm-color-emphasis-800);
+  text-decoration: none;
+  font-weight: var(--ifm-font-weight-semibold);
+  transition: all var(--ifm-transition-fast) ease;
+  border: none;
+  cursor: pointer;
+}
+
+.navbarLoginLink:hover {
+  background-color: var(--ifm-color-emphasis-300);
+  text-decoration: none;
+}
+
+.navbarLoginLink:focus {
+  outline: none;
+  box-shadow: var(--ifm-focus-ring);
+}
+
+.profileAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.profileInitials {
+  font-size: 0.875rem;
+  font-weight: var(--ifm-font-weight-bold);
+}
