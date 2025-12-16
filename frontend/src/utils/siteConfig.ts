@@ -19,27 +19,19 @@ const defaultConfig: SiteCustomFields = {
     authUrl: 'http://localhost:3001',
 };
 
-// Cache for the site config
-let cachedConfig: SiteCustomFields | null = null;
-
 /**
  * Get site configuration from Docusaurus
  * For React components, prefer using useDocusaurusContext() hook instead
  */
 export function getSiteConfig(): SiteCustomFields {
-    if (cachedConfig) {
-        return cachedConfig;
-    }
-
     // Try to get from global Docusaurus object (available at runtime in browser)
     if (typeof window !== 'undefined' && (window as any).__DOCUSAURUS__) {
         const docusaurus = (window as any).__DOCUSAURUS__;
         if (docusaurus?.siteConfig?.customFields) {
-            cachedConfig = {
+            return {
                 backendUrl: docusaurus.siteConfig.customFields.backendUrl || defaultConfig.backendUrl,
                 authUrl: docusaurus.siteConfig.customFields.authUrl || defaultConfig.authUrl,
             };
-            return cachedConfig;
         }
     }
 
