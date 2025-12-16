@@ -1,4 +1,5 @@
 // Auth service for frontend API calls
+import { getAuthUrl } from '../utils/siteConfig';
 
 interface SignupData {
   email: string;
@@ -30,8 +31,10 @@ interface User {
 }
 
 class AuthService {
-  // Browser-safe environment variable access (process.env is not available in browser)
-  private API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_AUTH_URL) || 'http://localhost:3001/api';
+  // Get auth URL from site config (reads from .env via docusaurus.config.ts)
+  private get API_BASE(): string {
+    return `${getAuthUrl()}/api`;
+  }
 
   async signup(userData: SignupData): Promise<User> {
     const response = await fetch(`${this.API_BASE}/auth/sign-up/email`, {

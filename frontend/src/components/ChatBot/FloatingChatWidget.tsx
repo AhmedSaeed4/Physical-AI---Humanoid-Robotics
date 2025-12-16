@@ -13,9 +13,33 @@ import LoginPrompt from './LoginPrompt';
 const FloatingChatInner: React.FC<{ selectedText: string | null; initialThread: string | null; onThreadChange: (threadId: string) => void }> = ({ selectedText, initialThread, onThreadChange }) => {
     const { siteConfig } = useDocusaurusContext();
     const backendUrl = (siteConfig.customFields?.backendUrl as string) || 'http://localhost:8000';
+
+    // Get user from localStorage synchronously (must be done in initial state to avoid hook timing issues)
+    const getUserIdFromStorage = (): string | null => {
+        if (typeof window === 'undefined') return null;
+        const authUser = localStorage.getItem('auth_user');
+        if (authUser) {
+            try {
+                const user = JSON.parse(authUser);
+                return user.id || null;
+            } catch (e) {
+                console.error('Failed to parse auth_user', e);
+            }
+        }
+        return null;
+    };
+
+    const userId = getUserIdFromStorage();
+
+
+    // Build API URL with user ID query parameter
+    const apiUrl = userId
+        ? `${backendUrl}/api/chatkit?userId=${encodeURIComponent(userId)}`
+        : `${backendUrl}/api/chatkit`;
+
     const { control, setComposerValue, focusComposer } = useChatKit({
         api: {
-            url: `${backendUrl}/api/chatkit`,
+            url: apiUrl,
             domainKey: 'localhost',
         },
         initialThread: initialThread,
@@ -78,13 +102,28 @@ const FloatingChatWidget: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
     useEffect(() => {
-        const savedThread = localStorage.getItem('chatkit-thread-id');
+        // Get user ID to create user-specific thread storage key
+        const authUser = localStorage.getItem('auth_user');
+        let savedThread = null;
+        if (authUser) {
+            try {
+                const user = JSON.parse(authUser);
+                const threadKey = `chatkit-thread-id-${user.id}`;
+                savedThread = localStorage.getItem(threadKey);
+            } catch (e) {
+                // Fallback to general storage if parsing fails
+                savedThread = localStorage.getItem('chatkit-thread-id');
+            }
+        } else {
+            // If not authenticated, use general storage
+            savedThread = localStorage.getItem('chatkit-thread-id');
+        }
         setInitialThread(savedThread || null);
 
         // Listen for the custom event to update selected text
         const handleOpenChatWithSelection = (event: CustomEvent) => {
             setSelectedText(event.detail.text);
-            setChatKey(prev => prev + 1);  // Increment to force clean ChatKit remount
+            // Don't reset chatKey - keep the active thread instead of creating a new one
             setIsOpen(true);
         };
 
@@ -112,13 +151,35 @@ const FloatingChatWidget: React.FC = () => {
         const handleStorageChange = (e: StorageEvent) => {
             if (e.key === 'auth_user') {
                 checkAuth();
+                // If user logged out, clear their thread storage
+                if (e.newValue === null || e.newValue === 'null') {
+                    const oldUser = e.oldValue ? JSON.parse(e.oldValue) : null;
+                    if (oldUser && oldUser.id) {
+                        localStorage.removeItem(`chatkit-thread-id-${oldUser.id}`);
+                    }
+                }
             }
         };
         window.addEventListener('storage', handleStorageChange);
 
         // Listen for auth changes from same page (login/logout dispatch custom event)
-        const handleAuthChanged = () => {
+        const handleAuthChanged = (e: Event) => {
             checkAuth();
+            // Handle logout scenario
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail && customEvent.detail.user === null) {
+                // User logged out, clear their thread storage
+                const authUser = localStorage.getItem('auth_user');
+                if (authUser) {
+                    try {
+                        const user = JSON.parse(authUser);
+                        localStorage.removeItem(`chatkit-thread-id-${user.id}`);
+                    } catch (e) {
+                        // If parsing fails, try to clear general storage
+                        localStorage.removeItem('chatkit-thread-id');
+                    }
+                }
+            }
         };
         window.addEventListener('auth_changed', handleAuthChanged);
 
@@ -148,14 +209,42 @@ const FloatingChatWidget: React.FC = () => {
     };
 
     const startNewChat = () => {
-        localStorage.removeItem('chatkit-thread-id');
+        // Get user ID to create user-specific thread storage key
+        const authUser = localStorage.getItem('auth_user');
+        if (authUser) {
+            try {
+                const user = JSON.parse(authUser);
+                const threadKey = `chatkit-thread-id-${user.id}`;
+                localStorage.removeItem(threadKey);
+            } catch (e) {
+                // Fallback to general storage if parsing fails
+                localStorage.removeItem('chatkit-thread-id');
+            }
+        } else {
+            // If not authenticated, use general storage
+            localStorage.removeItem('chatkit-thread-id');
+        }
         setInitialThread(null);
         setSelectedText(null); // Clear selection on new chat
         setChatKey(prev => prev + 1);  // Force ChatKit remount for fresh state
     };
 
     const handleThreadChange = (threadId: string) => {
-        localStorage.setItem('chatkit-thread-id', threadId);
+        // Get user ID to create user-specific thread storage key
+        const authUser = localStorage.getItem('auth_user');
+        if (authUser) {
+            try {
+                const user = JSON.parse(authUser);
+                const threadKey = `chatkit-thread-id-${user.id}`;
+                localStorage.setItem(threadKey, threadId);
+            } catch (e) {
+                // Fallback to general storage if parsing fails
+                localStorage.setItem('chatkit-thread-id', threadId);
+            }
+        } else {
+            // If not authenticated, use general storage
+            localStorage.setItem('chatkit-thread-id', threadId);
+        }
     };
 
     return (

@@ -222,6 +222,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - PostgreSQL (Neon) for users/sessions/chat history, Qdrant (cloud) for vector search (005-auth-neon-integration)
 - TypeScript 5.x (Frontend), Python 3.12+ (Backend), Node.js 20+ (Auth Server) + Docusaurus 3.x, React 19, CSS Modules, Infima, Better Auth (006-auth-styling)
 - N/A (No new storage needed, uses existing PostgreSQL and Qdrant) (006-auth-styling)
+- Python 3.12+, TypeScript 5.x, Node.js 20+ + FastAPI, ChatKit, Neon PostgreSQL, Better Auth, psycopg2 (007-user-chathistory)
+- PostgreSQL (Neon) for chat threads and messages (007-user-chathistory)
 
 ## Recent Changes
 - 001-physical-ai-book: Added Python 3.10+ (Primary), C++17 (Performance critical nodes) + ROS 2 Humble Hawksbill, NVIDIA Isaac Sim (4.0+), Gazebo (Fortress/Harmonic), PyTorch (CUDA 12.x), OpenAI API (Whisper, GPT-4o), NVIDIA Isaac ROS GEMs

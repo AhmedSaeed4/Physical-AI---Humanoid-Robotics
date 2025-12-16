@@ -61,6 +61,7 @@ config = RunConfig(
 )
 
 # Import store and adapter
+from .neon_store import NeonStore
 from .store import MemoryStore
 from .chatkit_adapter import ChatKitRAGAdapter
 
@@ -70,7 +71,7 @@ from fastapi import Depends
 
 # Define ChatKit Server Implementation with proper streaming
 class ChatKitServerImpl(ChatKitServer):
-    def __init__(self, store: MemoryStore, model=None, config=None):
+    def __init__(self, store: NeonStore, model=None, config=None):
         super().__init__(store)
         self.store = store
         # Use ChatKit's official converter for proper item handling
@@ -274,13 +275,42 @@ def create_access_token(user_id: str) -> str:
     return token
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get current user from token"""
+    """Get current user from token with full profile from database"""
     token = credentials.credentials
     if token not in tokens_db:
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
     user_data = tokens_db[token]
-    return {"id": user_data["user_id"], "name": f"User {user_data['user_id']}"}
+    user_id = user_data["user_id"]
+    
+    # Fetch full user profile from database including learning preferences
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        
+        conn = psycopg2.connect(
+            dsn=os.getenv('DATABASE_URL'),
+            sslmode='require'
+        )
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT id, name, email, "educationLevel", "programmingExperience", 
+                   "roboticsBackground", "softwareBackground", "hardwareBackground"
+            FROM "user" WHERE id = %s
+        ''', (user_id,))
+        
+        user_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if user_row:
+            return dict(user_row)
+        else:
+            return {"id": user_id, "name": f"User {user_id}"}
+    except Exception as e:
+        print(f"Error fetching user profile: {e}")
+        return {"id": user_id, "name": f"User {user_id}"}
 
 # Authentication endpoints
 @app.post("/api/auth/login")
@@ -329,7 +359,7 @@ async def chatkit_endpoint_auth(request: Request, current_user: dict = Depends(g
         return StreamingResponse(result, media_type="text/event-stream")
     return Response(content=result.json, media_type="application/json")
 
-# Add ChatKit endpoint without authentication (for testing)
+# Add ChatKit endpoint - extracts user from query parameter
 @app.post("/api/chatkit")
 async def chatkit_endpoint_no_auth(request: Request):
     # Parse request to extract selected text if present
@@ -343,8 +373,56 @@ async def chatkit_endpoint_no_auth(request: Request):
     except json.JSONDecodeError:
         selected_text = None
 
-    # Add a default user context and selected text to the server call
-    context = {"user": {"id": "test_user", "name": "Test User"}}
+    # Get user ID from query parameter (passed from frontend localStorage)
+    user_id = request.query_params.get('userId')
+    user_name = "User"
+    
+    
+    
+    if user_id:
+        # Validate user exists in database and fetch full profile
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+            
+            conn = psycopg2.connect(
+                dsn=os.getenv('DATABASE_URL'),
+                sslmode='require'
+            )
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # Fetch full user profile including learning preferences
+            cursor.execute('''
+                SELECT id, name, email, "educationLevel", "programmingExperience", 
+                       "roboticsBackground", "softwareBackground", "hardwareBackground"
+                FROM "user" WHERE id = %s
+            ''', (user_id,))
+            user_row = cursor.fetchone()
+            
+            if user_row:
+                user_name = user_row.get('name') or user_row.get('email', 'User')
+                # Store full user profile
+                user_profile = dict(user_row)
+            else:
+                user_id = None
+                user_profile = None
+            
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error validating user: {e}")
+            user_id = None
+            user_profile = None
+    
+    # If no valid user, return error
+    if not user_id:
+        raise HTTPException(
+            status_code=401, 
+            detail="Authentication required. Please log in to use the chat."
+        )
+    
+    # Build context with full user profile
+    context = {"user": user_profile if user_profile else {"id": user_id, "name": user_name}}
     if selected_text:
         context['selected_text'] = selected_text
 
@@ -354,26 +432,42 @@ async def chatkit_endpoint_no_auth(request: Request):
     return Response(content=result.json, media_type="application/json")
 
 # Initialize store and server
-store = MemoryStore()
+store = NeonStore()
 server = ChatKitServerImpl(store)
 
 
 # Debug endpoint to inspect stored items
 @app.get("/debug/threads")
-async def debug_threads():
+async def debug_threads(current_user: dict = Depends(get_current_user)):
+    # For NeonStore, we'll load threads for the current user
     result = {}
-    for thread_id, state in store._threads.items():
+
+    # Load threads for the current user
+    page = await store.load_threads(limit=100, after=None, order="desc", context={"user": current_user})
+
+    for thread in page.data:
+        # Load items for each thread
+        items_page = await store.load_thread_items(
+            thread_id=thread.id,
+            after=None,
+            limit=100,
+            order="asc",
+            context={"user": current_user}
+        )
+
         items = []
-        for item in state.items:
+        for item in items_page.data:
             item_data = {"id": item.id, "type": type(item).__name__}
             if hasattr(item, 'content') and item.content:
                 content_parts = []
                 for part in item.content:
                     if hasattr(part, 'text'):
-                        content_parts.append(part.text)
+                        content_parts.append(str(part))
                 item_data["content"] = content_parts
             items.append(item_data)
-        result[thread_id] = {"items": items, "count": len(items)}
+
+        result[thread.id] = {"items": items, "count": len(items)}
+
     return result
 
 # Pydantic models for request/response
@@ -463,9 +557,9 @@ async def chat_endpoint(request: ChatRequest, current_user: dict = Depends(get_c
         if current_user:
             user_profile_context = f"""
             The user has the following background:
-            - Education level: {getattr(current_user, 'educationLevel', getattr(current_user, 'education_level', 'Not specified'))}
-            - Programming experience: {getattr(current_user, 'programmingExperience', getattr(current_user, 'programming_experience', 'Not specified'))}
-            - Robotics background: {getattr(current_user, 'roboticsBackground', getattr(current_user, 'robotics_background', 'Not specified'))}
+            - Education level: {current_user.get('educationLevel', current_user.get('education_level', 'Not specified'))}
+            - Programming experience: {current_user.get('programmingExperience', current_user.get('programming_experience', 'Not specified'))}
+            - Robotics background: {current_user.get('roboticsBackground', current_user.get('robotics_background', 'Not specified'))}
 
             Tailor your explanations to match their experience level.
             """
@@ -697,6 +791,129 @@ async def get_chat_history(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching chat history: {str(e)}")
+
+
+# API endpoints for ChatKit thread management
+@app.get("/api/chat/threads")
+async def get_user_threads(
+    limit: int = Query(default=20, ge=1, le=100, description="Number of threads to return"),
+    after: str = Query(default=None, description="Cursor for pagination"),
+    order: str = Query(default="desc", regex="^(asc|desc)$", description="Order of threads (by creation date)"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Retrieve list of chat threads for the authenticated user
+    """
+    try:
+        # Load threads for the current user using NeonStore
+        page = await store.load_threads(limit=limit, after=after, order=order, context={"user": current_user})
+
+        # Format the response to match the API specification
+        threads_data = []
+        for thread in page.data:
+            thread_data = {
+                "id": thread.id,
+                "userId": current_user.get('id'),
+                "metadata": thread.metadata,
+                "createdAt": thread.created_at.isoformat() if thread.created_at else None,
+                "updatedAt": thread.created_at.isoformat() if thread.created_at else None  # Using created_at as updatedAt for simplicity
+            }
+            threads_data.append(thread_data)
+
+        return {"threads": threads_data}
+
+    except ValueError as e:
+        # Handle store-specific errors (like connection errors)
+        raise HTTPException(status_code=503, detail=f"Service temporarily unavailable: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching user threads: {str(e)}")
+
+
+@app.get("/api/chat/threads/{threadId}")
+async def get_thread(threadId: str, current_user: dict = Depends(get_current_user)):
+    """
+    Retrieve a specific chat thread by ID for the authenticated user
+    """
+    try:
+        # Load the specific thread for the current user
+        thread = await store.load_thread(threadId, context={"user": current_user})
+
+        # Format the response to match the API specification
+        thread_data = {
+            "id": thread.id,
+            "userId": current_user.get('id'),
+            "metadata": thread.metadata,
+            "createdAt": thread.created_at.isoformat() if thread.created_at else None,
+            "updatedAt": thread.created_at.isoformat() if thread.created_at else None  # Using created_at as updatedAt for simplicity
+        }
+
+        return thread_data
+
+    except ValueError as e:
+        # Thread not found
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching thread: {str(e)}")
+
+
+@app.delete("/api/chat/threads/{threadId}")
+async def delete_thread(threadId: str, current_user: dict = Depends(get_current_user)):
+    """
+    Delete a specific chat thread and all its messages
+    """
+    try:
+        # Delete the thread (this will also delete associated messages due to CASCADE)
+        await store.delete_thread(threadId, context={"user": current_user})
+
+        return {"message": "Thread deleted successfully"}
+
+    except ValueError as e:
+        # Thread not found or not owned by user
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting thread: {str(e)}")
+
+
+@app.get("/api/chat/threads/{threadId}/messages")
+async def get_thread_messages(
+    threadId: str,
+    limit: int = Query(default=50, ge=1, le=100, description="Number of messages to return"),
+    after: str = Query(default=None, description="Cursor for pagination"),
+    order: str = Query(default="asc", regex="^(asc|desc)$", description="Order of messages (by creation date)"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Retrieve messages from a specific chat thread
+    """
+    try:
+        # Load messages from the thread for the current user
+        page = await store.load_thread_items(
+            thread_id=threadId,
+            after=after,
+            limit=limit,
+            order=order,
+            context={"user": current_user}
+        )
+
+        # Format the response to match the API specification
+        messages_data = []
+        for item in page.data:
+            message_data = {
+                "id": item.id,
+                "threadId": threadId,
+                "type": type(item).__name__.replace('MessageItem', '').lower() or 'message',
+                "content": getattr(item, 'content', {}),
+                "createdAt": getattr(item, 'created_at', datetime.now(timezone.utc)).isoformat()
+            }
+            messages_data.append(message_data)
+
+        return {"messages": messages_data}
+
+    except ValueError as e:
+        # Thread not found or not owned by user
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching thread messages: {str(e)}")
 
 
 if __name__ == "__main__":

@@ -58,15 +58,14 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    // Allow cookies to work across different ports (localhost:3000 -> localhost:3001)
+    // Cross-subdomain cookies don't work across different domains (netlify/render)
     crossSubDomainCookies: {
-      enabled: true,
-      domain: 'localhost',
+      enabled: false,
     },
     defaultCookieAttributes: {
       sameSite: 'lax',
       httpOnly: true,
-      secure: false, // Set to true in production with HTTPS
+      secure: process.env.NODE_ENV === 'production', // true in production (HTTPS), false locally
       path: '/',
     },
   },
