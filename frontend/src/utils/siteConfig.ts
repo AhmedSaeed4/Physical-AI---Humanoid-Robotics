@@ -15,8 +15,8 @@ export interface SiteCustomFields {
 // This will be populated by Docusaurus at runtime
 // Fallback values for local development when config isn't available
 const defaultConfig: SiteCustomFields = {
-    backendUrl: 'http://localhost:8000',
-    authUrl: 'http://localhost:3001',
+    backendUrl: 'https://physical-ai-humanoid-robotics.onrender.com',
+    authUrl: 'https://physical-ai-humanoid-robotics-1.onrender.com',
 };
 
 /**
