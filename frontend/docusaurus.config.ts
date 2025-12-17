@@ -2,6 +2,11 @@ import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
+// DEBUG: Log env vars at build time (check Netlify build logs)
+console.log('=== DOCUSAURUS BUILD TIME DEBUG ===');
+console.log('AUTH_URL:', process.env.AUTH_URL);
+console.log('BACKEND_URL:', process.env.BACKEND_URL);
+console.log('===================================');
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 

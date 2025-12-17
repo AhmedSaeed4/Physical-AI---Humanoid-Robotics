@@ -24,6 +24,14 @@ const defaultConfig: SiteCustomFields = {
  * For React components, prefer using useDocusaurusContext() hook instead
  */
 export function getSiteConfig(): SiteCustomFields {
+    // DEBUG: Log what's available at runtime (check browser console)
+    if (typeof window !== 'undefined') {
+        console.log('=== SITECONFIG RUNTIME DEBUG ===');
+        console.log('window.__DOCUSAURUS__:', (window as any).__DOCUSAURUS__);
+        console.log('customFields:', (window as any).__DOCUSAURUS__?.siteConfig?.customFields);
+        console.log('================================');
+    }
+
     // Try to get from global Docusaurus object (available at runtime in browser)
     if (typeof window !== 'undefined' && (window as any).__DOCUSAURUS__) {
         const docusaurus = (window as any).__DOCUSAURUS__;
