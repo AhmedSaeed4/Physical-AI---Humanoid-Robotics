@@ -45,6 +45,7 @@ const config: Config = {
   customFields: {
     backendUrl: process.env.BACKEND_URL || 'http://localhost:8000',
     authUrl: process.env.AUTH_URL || 'http://localhost:3001',
+    domainKey: process.env.DOMAIN_KEY || 'localhost',
   },
 
   presets: [

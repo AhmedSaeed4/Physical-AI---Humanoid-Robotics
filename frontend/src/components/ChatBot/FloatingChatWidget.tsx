@@ -32,6 +32,8 @@ const FloatingChatInner: React.FC<{ selectedText: string | null; initialThread: 
     const userId = getUserIdFromStorage();
 
 
+    const domainKey = (siteConfig.customFields?.domainKey as string) || 'localhost';
+
     // Build API URL with user ID query parameter
     const apiUrl = userId
         ? `${backendUrl}/api/chatkit?userId=${encodeURIComponent(userId)}`
@@ -40,7 +42,7 @@ const FloatingChatInner: React.FC<{ selectedText: string | null; initialThread: 
     const { control, setComposerValue, focusComposer } = useChatKit({
         api: {
             url: apiUrl,
-            domainKey: 'localhost',
+            domainKey: domainKey,
         },
         initialThread: initialThread,
         theme: {
